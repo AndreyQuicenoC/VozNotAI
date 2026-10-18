@@ -1,0 +1,6 @@
+{
+  "name": "VozNotAI — Plataforma de Transcripción Whisper & Auditoría Acústica",
+  "description": "Plataforma profesional de transcripción de alta fidelidad con modelos Whisper acelerados por hardware local CUDA o nube failover, diarización multi-hablante y gestión de cuotas de ClustLayer / Eureka Solutions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

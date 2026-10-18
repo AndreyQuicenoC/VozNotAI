@@ -1,0 +1,35 @@
+# Dependencias y artefactos
+node_modules/
+frontend/node_modules/
+backend/venv/
+dist/
+build/
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+.coverage
+*.egg-info/
+
+# Secretos y datos locales
+.env
+.env.local
+.env.*.local
+!.env.example
+*.db
+uploads/
+backend/uploads/
+
+# Herramientas de generación. Se usan como instrucción, no forman parte del producto.
+.ai/
+.aistudio/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
