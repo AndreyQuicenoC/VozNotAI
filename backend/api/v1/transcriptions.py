@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import FileResponse, PlainTextResponse
@@ -6,6 +7,7 @@ from backend.api.deps import get_current_user
 from backend.core.config import get_settings
 from backend.core.exceptions import ResourceNotFoundException
 from backend.db.session import get_db
+from backend.models.usage_event import UsageEvent
 from backend.models.user import User
 from backend.repositories.audio_repository import AudioRepository
 from backend.repositories.transcription_repository import TranscriptionRepository
@@ -19,6 +21,29 @@ router = APIRouter(prefix="/transcriptions", tags=["Transcripciones"])
 settings = get_settings()
 
 
+def _reference_cost(duration_seconds: float) -> float:
+    if duration_seconds <= 0:
+        return 0.0
+    rate = Decimal(str(settings.USAGE_RATE_PER_MINUTE))
+    amount = (Decimal(str(duration_seconds)) / Decimal("60")) * rate
+    return float(amount.quantize(Decimal("0.000001")))
+
+
+def _transcription_payload(row, db) -> TranscriptionResponse:
+    payload = TranscriptionResponse.model_validate(row)
+    usage = (
+        db.query(UsageEvent)
+        .filter(UsageEvent.transcription_id == row.id)
+        .order_by(UsageEvent.created_at.desc())
+        .first()
+    )
+    stored = float(usage.estimated_cost_usd) if usage and usage.estimated_cost_usd is not None else 0.0
+    actual = float(usage.actual_cost_usd) if usage and usage.actual_cost_usd is not None else None
+    cost = actual if actual and actual > 0 else stored if stored > 0 else _reference_cost(row.duration_seconds)
+    file_size = row.audio_asset.file_size_bytes if row.audio_asset else 0
+    return payload.model_copy(update={"estimated_cost_usd": cost, "file_size_bytes": file_size})
+
+
 @router.get("", response_model=list[TranscriptionResponse])
 def list_transcriptions(
     conversation_id: Optional[str] = Query(None),
@@ -30,7 +55,7 @@ def list_transcriptions(
         rows = repo.list_by_conversation(conversation_id, current_user.id)
     else:
         rows = repo.list_by_owner(current_user.id)
-    return [TranscriptionResponse.model_validate(row) for row in rows]
+    return [_transcription_payload(row, db) for row in rows]
 
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
@@ -51,7 +76,7 @@ async def upload_audio_and_transcribe(
         language=language,
     )
     return {
-        "transcription": TranscriptionResponse.model_validate(transcription),
+        "transcription": _transcription_payload(transcription, db),
         "conversation_id": conv.id,
         "conversation_title": conv.title,
     }

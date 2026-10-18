@@ -49,7 +49,8 @@ class AuthService:
             role="customer",  # Explicitly prevent public registration of admin roles
             role_title="Cliente Pro",
             organization="Eureka Client",
-            avatar_url="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
+            avatar_url=None,
+            preferred_language="auto",
             is_active=True,
             is_verified=True,
             max_minutes_quota=120,
@@ -135,9 +136,17 @@ class AuthService:
         if req.birth_date is not None:
             user.birth_date = req.birth_date
         if req.avatar_url is not None:
-            user.avatar_url = req.avatar_url
+            avatar = req.avatar_url.strip()
+            if avatar and not avatar.startswith("data:image/"):
+                raise BusinessRuleViolationException(
+                    "La foto de perfil debe ser una imagen cargada desde el equipo.",
+                    code="INVALID_AVATAR",
+                )
+            user.avatar_url = avatar or None
         if req.preferred_mode is not None:
             user.preferred_mode = req.preferred_mode
+        if req.preferred_language is not None:
+            user.preferred_language = req.preferred_language
 
         self.db.commit()
         self.db.refresh(user)

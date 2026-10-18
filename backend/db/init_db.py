@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from backend.core.config import get_settings
 from backend.core.security import get_password_hash
@@ -11,9 +12,24 @@ logger = logging.getLogger("voznotai.init_db")
 settings = get_settings()
 
 
+def ensure_runtime_columns() -> None:
+    """Adds columns introduced after the first local database was created."""
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    conversation_columns = {column["name"] for column in inspector.get_columns("conversations")}
+    with engine.begin() as connection:
+        if "preferred_language" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN preferred_language VARCHAR(12) DEFAULT 'auto'"))
+        if "tags" not in conversation_columns:
+            connection.execute(text("ALTER TABLE conversations ADD COLUMN tags VARCHAR(400) DEFAULT ''"))
+
+
 def init_db(db: Session) -> None:
     """Initializes tables and seeds necessary default system settings and admin."""
     Base.metadata.create_all(bind=engine)
+    ensure_runtime_columns()
 
     # 1. Initialize or verify SystemSettings
     sys_settings = db.query(SystemSettings).first()

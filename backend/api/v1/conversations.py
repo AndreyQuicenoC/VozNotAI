@@ -17,6 +17,22 @@ from backend.services.conversations.conversation_service import ConversationServ
 router = APIRouter(prefix="/conversations", tags=["Conversaciones"])
 
 
+def _conversation_payload(conversation) -> ConversationResponse:
+    latest_audio = conversation.audio_assets[-1] if conversation.audio_assets else None
+    return ConversationResponse(
+        id=conversation.id,
+        owner_user_id=conversation.owner_user_id,
+        title=conversation.title,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
+        messages_count=len(conversation.messages),
+        audio_assets_count=len(conversation.audio_assets),
+        notes_count=len(conversation.notes),
+        file_size_bytes=latest_audio.file_size_bytes if latest_audio else 0,
+        tags=conversation.tags or "",
+    )
+
+
 @router.get("", response_model=List[ConversationResponse])
 def list_conversations(
     search: Optional[str] = Query(None),
@@ -27,21 +43,7 @@ def list_conversations(
 ):
     service = ConversationService(db)
     convs = service.list(user_id=current_user.id, search=search, skip=skip, limit=limit)
-    res = []
-    for c in convs:
-        res.append(
-            ConversationResponse(
-                id=c.id,
-                owner_user_id=c.owner_user_id,
-                title=c.title,
-                created_at=c.created_at,
-                updated_at=c.updated_at,
-                messages_count=len(c.messages),
-                audio_assets_count=len(c.audio_assets),
-                notes_count=len(c.notes),
-            )
-        )
-    return res
+    return [_conversation_payload(conversation) for conversation in convs]
 
 
 @router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
@@ -52,16 +54,7 @@ def create_conversation(
 ):
     service = ConversationService(db)
     conv = service.create(user_id=current_user.id, title=req.title or "Nueva Conversación")
-    return ConversationResponse(
-        id=conv.id,
-        owner_user_id=conv.owner_user_id,
-        title=conv.title,
-        created_at=conv.created_at,
-        updated_at=conv.updated_at,
-        messages_count=0,
-        audio_assets_count=0,
-        notes_count=0,
-    )
+    return _conversation_payload(conv)
 
 
 @router.get("/{id}", response_model=ConversationDetailResponse)
@@ -91,17 +84,13 @@ def update_conversation(
     db: Session = Depends(get_db),
 ):
     service = ConversationService(db)
-    conv = service.update_title(user_id=current_user.id, conversation_id=id, new_title=req.title)
-    return ConversationResponse(
-        id=conv.id,
-        owner_user_id=conv.owner_user_id,
-        title=conv.title,
-        created_at=conv.created_at,
-        updated_at=conv.updated_at,
-        messages_count=len(conv.messages),
-        audio_assets_count=len(conv.audio_assets),
-        notes_count=len(conv.notes),
+    conv = service.update_conversation(
+        user_id=current_user.id,
+        conversation_id=id,
+        new_title=req.title,
+        tags=req.tags,
     )
+    return _conversation_payload(conv)
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)

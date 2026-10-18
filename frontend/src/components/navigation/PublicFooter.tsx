@@ -30,8 +30,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               </span>
             </button>
             <p className="text-xs text-[#c5c5d7] leading-relaxed">
-              La voz toma forma: información fluida, precisa y estructurada en clústeres de inferencia
-              determinista sin latencia.
+              Transcripción de audio para la cuenta que inició sesión. El texto, las notas y el archivo quedan guardados.
             </p>
             <div className="text-[11px] text-[#c5c5d7]/80">
               Una iniciativa de <span className="text-[#48d9e8] font-medium">ClustLayer</span> &{" "}
@@ -99,7 +98,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate("privacy")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
-                  Términos de Servicio & Confidencialidad
+                  Qué se guarda
                 </button>
               </li>
               <li>
@@ -107,7 +106,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate("about")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
-                  Seguridad y Auditoría ISO/IEC 25010
+                  Autores
                 </button>
               </li>
               <li>
@@ -115,7 +114,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate("manual")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
-                  Documentación API & Protocolos
+                  Manual de uso
                 </button>
               </li>
             </ul>
@@ -127,8 +126,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               Motor de Procesamiento
             </span>
             <p className="text-xs text-[#c5c5d7] leading-relaxed">
-              El servidor usa Whisper local o el proveedor remoto que un administrador haya configurado.
-              Esta instalación no publica métricas de un clúster de GPU.
+              El motor lo configura quien administra el servidor. Esta instalación no publica métricas de un clúster de GPU.
             </p>
           </div>
         </div>

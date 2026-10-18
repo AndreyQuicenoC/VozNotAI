@@ -46,7 +46,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onNavigate }) => {
           </h2>
 
           <p className="text-xs text-gray-400">
-            Conéctate a tu clúster de transcripción Whisper local y soberana.
+            Entra a tu cuenta para transcribir audio y revisar tus conversaciones.
           </p>
         </div>
 

@@ -28,7 +28,7 @@ import { AiConfigView } from "./features/ai-config/AiConfigView.tsx";
 import { QuickUploadModal } from "./components/shared/QuickUploadModal.tsx";
 import { CommandPaletteModal } from "./components/shared/CommandPaletteModal.tsx";
 import { useVozNotStore } from "./services/store.ts";
-import { normalizeRoute, isAccessibleWithoutAuth, isPublicRoute, type AppRoute } from "./utils/routes.ts";
+import { normalizeRoute, isAccessibleWithoutAuth, isKnownRoute, isPublicRoute, type AppRoute } from "./utils/routes.ts";
 
 export default function App() {
   const { currentSessionId, setCurrentSessionId, currentUser, authReady, error } = useVozNotStore();
@@ -45,13 +45,19 @@ export default function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const raw = window.location.hash || "";
-      const canonical = normalizeRoute(raw);
-      setCurrentPath(canonical);
+      if (!authReady) return;
+      if (!raw || !isKnownRoute(raw)) {
+        const next = currentUser ? "dashboard" : "home";
+        setCurrentPath(next);
+        if (window.location.hash !== `#/${next}`) window.location.hash = `#/${next}`;
+        return;
+      }
+      setCurrentPath(normalizeRoute(raw));
     };
 
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
+  }, [authReady, currentUser]);
 
   const navigateTo = (path: AppRoute | string) => {
     const canonical = normalizeRoute(path);
@@ -67,6 +73,10 @@ export default function App() {
   useEffect(() => {
     if (!authReady) return;
     if (!window.location.hash) {
+      navigateTo(currentUser ? "dashboard" : "home");
+      return;
+    }
+    if (!isKnownRoute(window.location.hash)) {
       navigateTo(currentUser ? "dashboard" : "home");
       return;
     }
@@ -117,7 +127,7 @@ export default function App() {
       ) : showPublicShell ? (
         <div className="flex flex-col min-h-screen">
           <PublicHeader currentPath={currentPath} onNavigate={navigateTo} />
-          <main className="flex-1 pt-24 pb-12 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+          <main className="flex-1 pt-28 pb-12 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
             {currentPath === "home" && <HomeView onNavigate={navigateTo} />}
             {currentPath === "features" && <FeaturesView onNavigate={navigateTo} />}
             {currentPath === "how-it-works" && <HowItWorksView onNavigate={navigateTo} />}
@@ -155,7 +165,7 @@ export default function App() {
             />
 
             {/* Scrollable View Area */}
-            <main className="flex-1 overflow-y-auto p-6 md:p-8 pt-24 max-w-7xl mx-auto w-full">
+            <main className="flex-1 overflow-y-auto px-6 md:px-8 py-6 max-w-7xl mx-auto w-full">
               {currentPath === "dashboard" && (
                 <DashboardView
                   onNavigate={navigateTo}

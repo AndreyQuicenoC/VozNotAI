@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AudioSession, AuditEvent, SmartNote, SystemSettings, TranscriptSegment, User } from "../types/index.ts";
 import { api } from "./api.ts";
-import { formatDuration } from "../utils/costCalculator.ts";
+import { formatDuration, formatFileSize } from "../utils/costCalculator.ts";
 
 export interface UsageSnapshot {
   total_audio_minutes: number;
@@ -110,6 +110,7 @@ function mapUser(raw: Record<string, unknown>): User {
     roleTitle: String(raw.role_title ?? raw.role ?? "Cliente"),
     organization: String(raw.organization ?? "ClustLayer"),
     avatarUrl: String(raw.avatar_url ?? ""),
+    preferredLanguage: String(raw.preferred_language ?? "auto"),
     status: active ? "Activo" : "Suspendido",
     totalConversations: 0,
     accumulatedMinutes: 0,
@@ -167,15 +168,21 @@ function mapSession(
   const status =
     statusRaw === "completed" ? "Completado" : statusRaw === "failed" ? "Listo" : "Procesando";
   const transcriptionId = transcription?.id ? String(transcription.id) : undefined;
+  const fileSizeBytes = Number(transcription?.file_size_bytes ?? conv.file_size_bytes ?? 0);
+  const extension = String(conv.title ?? "").split(".").pop()?.toUpperCase() || "AUDIO";
+  const tags = String(conv.tags ?? "")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
   return {
     id: String(conv.id),
     title: String(conv.title ?? "Conversación"),
     filename: String(conv.title ?? "audio"),
     durationSeconds: duration,
     formattedDuration: formatDuration(duration),
-    fileSizeFormatted: "",
-    fileSizeBytes: 0,
-    format: provider === "remote_api" ? "API" : "Local",
+    fileSizeFormatted: formatFileSize(fileSizeBytes),
+    fileSizeBytes,
+    format: extension,
     channels: "",
     status,
     mode: provider === "remote_api" ? "Cloud" : "Local",
@@ -185,8 +192,10 @@ function mapSession(
     segments,
     vramUsedGb: 0,
     createdAt: String(conv.created_at ?? ""),
+    tags,
     transcriptionId,
     audioUrl: transcriptionId ? api.getAudioStreamUrl(transcriptionId) : undefined,
+    estimatedCostUsd: Number(transcription?.estimated_cost_usd ?? 0),
   };
 }
 
@@ -432,11 +441,13 @@ export function useVozNotStore() {
 
   const updateUser = async (updated: Partial<User>) => {
     try {
-      const saved = await api.updateProfile({
-        first_name: updated.name,
-        last_name: updated.lastName,
-        phone: updated.phone,
-      });
+      const payload: Record<string, unknown> = {};
+      if (updated.name !== undefined) payload.first_name = updated.name;
+      if (updated.lastName !== undefined) payload.last_name = updated.lastName;
+      if (updated.phone !== undefined) payload.phone = updated.phone;
+      if (updated.avatarUrl !== undefined) payload.avatar_url = updated.avatarUrl;
+      if (updated.preferredLanguage !== undefined) payload.preferred_language = updated.preferredLanguage;
+      const saved = await api.updateProfile(payload);
       state.currentUser = mapUser(saved);
       state.error = null;
       notifyUpdate();
@@ -460,9 +471,13 @@ export function useVozNotStore() {
   };
 
   const updateSession = async (sessionId: string, updates: Partial<AudioSession>) => {
-    if (updates.title) {
+    const current = state.sessions.find((session) => session.id === sessionId);
+    if (updates.title || updates.tags) {
       try {
-        await api.updateConversationTitle(sessionId, updates.title);
+        await api.updateConversation(sessionId, {
+          title: updates.title ?? current?.title,
+          tags: (updates.tags ?? current?.tags ?? []).join(", "),
+        });
       } catch (err) {
         state.error = errorMessage(err);
         notifyUpdate();
@@ -585,6 +600,51 @@ export function useVozNotStore() {
     notifyUpdate();
   };
 
+  const transcribeFile = async (file: File) => {
+    const pendingId = `pending-${Date.now()}`;
+    const pending: AudioSession = {
+      id: pendingId,
+      title: file.name,
+      filename: file.name,
+      durationSeconds: 0,
+      formattedDuration: "00:00",
+      fileSizeFormatted: formatFileSize(file.size),
+      fileSizeBytes: file.size,
+      format: file.name.split(".").pop()?.toUpperCase() || "AUDIO",
+      channels: "",
+      status: "Procesando",
+      progressPercentage: 35,
+      mode: "Audio",
+      space: "Conversaciones",
+      notesCount: 0,
+      confidence: 0,
+      segments: [],
+      vramUsedGb: 0,
+      createdAt: new Date().toISOString(),
+      tags: [],
+    };
+    state.sessions = [pending, ...state.sessions.filter((session) => session.id !== pendingId)];
+    state.currentSessionId = pendingId;
+    state.error = null;
+    notifyUpdate();
+    try {
+      const language = state.currentUser?.preferredLanguage;
+      const response = await api.uploadAudioAndTranscribe(
+        file,
+        undefined,
+        language && language !== "auto" ? language : undefined
+      );
+      await refreshWorkspace();
+      state.sessions = state.sessions.filter((session) => session.id !== pendingId);
+      state.currentSessionId = String(response.conversation_id);
+      state.error = null;
+    } catch (err) {
+      state.sessions = state.sessions.filter((session) => session.id !== pendingId);
+      state.error = errorMessage(err);
+    }
+    notifyUpdate();
+  };
+
   const refresh = async () => {
     if (!state.currentUser) return;
     try {
@@ -622,6 +682,7 @@ export function useVozNotStore() {
     updateUser,
     selectSession,
     addSession,
+    transcribeFile,
     updateSession,
     deleteSession,
     addNote,

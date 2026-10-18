@@ -51,6 +51,9 @@ class TranscriptionService:
         language: Optional[str] = None,
     ) -> Tuple[Transcription, Conversation]:
         sys_settings = self.settings_repo.get_active_settings()
+        if not language or language == "auto":
+            preferred = (getattr(user, "preferred_language", None) or "auto").strip()
+            language = None if preferred in ("", "auto") else preferred
 
         # 1. Validation phase
         clean_name, detected_fmt, duration_est, checksum = validate_audio_file(
@@ -176,7 +179,7 @@ class TranscriptionService:
             # 9. Register UsageEvent with exact Decimal cost calculation
             rate_per_min = sys_settings.usage_rate_per_audio_minute
             audio_mins = Decimal(str(transcription.duration_seconds)) / Decimal("60.0")
-            estimated_cost = Decimal(str(round(audio_mins * rate_per_min, 4)))
+            estimated_cost = (audio_mins * rate_per_min).quantize(Decimal("0.000001"))
 
             usage_event = UsageEvent(
                 owner_user_id=user.id,

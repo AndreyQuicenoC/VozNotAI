@@ -2,9 +2,7 @@ import React, { useState, useRef } from "react";
 import { useVozNotStore } from "../../services/store.ts";
 import { validateAudioFile } from "../../utils/securityValidator.ts";
 import { encodeBlobToWav } from "../../utils/wavEncoder.ts";
-import { formatDuration } from "../../utils/costCalculator.ts";
-import { api } from "../../services/api.ts";
-import type { AudioSession, TranscriptSegment } from "../../types/index.ts";
+import type { AudioSession } from "../../types/index.ts";
 
 interface QuickUploadModalProps {
   isOpen?: boolean;
@@ -19,10 +17,9 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
   onSuccess,
   onCreated,
 }) => {
-  const { addSession, currentUser, setCurrentSessionId, refresh, engineStatus } = useVozNotStore();
+  const { currentUser, engineStatus, transcribeFile } = useVozNotStore();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [space, setSpace] = useState<string>("Eureka Executive");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -127,84 +124,18 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
     }
   };
 
-  const handleStartTranscription = async () => {
-    if (!selectedFile) {
+  const handleStartTranscription = () => {
+    if (!selectedFile || isConverting || isRecording) {
       setError("Por favor seleccione un archivo de audio o grabe una nota.");
       return;
     }
-
-    setIsProcessing(true);
-    setProgress(25);
-    setStatusMessage("Enviando audio al clúster de inferencia VozNotAI...");
-
-    try {
-      setProgress(50);
-      setStatusMessage("Ejecutando transcripción y diarización fonética con Whisper...");
-
-      const resp = await api.uploadAudioAndTranscribe(selectedFile);
-      const trans: any = resp.transcription;
-
-      setProgress(100);
-      setStatusMessage("¡Transcripción finalizada con éxito!");
-
-      const segments: TranscriptSegment[] = (trans.segments || []).map((s: any) => ({
-        id: s.id,
-        start: s.start,
-        end: s.end,
-        text: s.text,
-        speaker: s.speaker || "Hablante 1",
-        speakerRole: s.speakerRole || "Interlocutor",
-        confidence: s.confidence || 0.98,
-      }));
-
-      const newSession: AudioSession = {
-        id: resp.conversation_id || `sess-${Date.now()}`,
-        title: selectedFile.name,
-        filename: selectedFile.name,
-        durationSeconds: trans.duration_seconds || 30,
-        formattedDuration: formatDuration(trans.duration_seconds || 30),
-        fileSizeFormatted: `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB`,
-        fileSizeBytes: selectedFile.size,
-        format: selectedFile.type || "WAV 24-bit 48kHz",
-        channels: "Estéreo L/R",
-        status: "Completado",
-        mode: trans.provider === "remote_api" ? "Cloud" : "Local",
-        space,
-        notesCount: 0,
-        confidence: 0,
-        vramUsedGb: 0,
-        createdAt:
-          "Hoy, " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        tags: [space.split(" ")[0], trans.provider === "remote_api" ? "Cloud" : "Local", "Nuevo"],
-        segments: segments.length > 0 ? segments : [
-          {
-            id: `seg-${Date.now()}-1`,
-            start: 0.0,
-            end: trans.duration_seconds || 15.0,
-            speaker: `${currentUser?.name || "Operador"} ${currentUser?.lastName || ""}`.trim(),
-            speakerRole: currentUser?.roleTitle || "Operador",
-            text: trans.transcript_text || "Audio procesado exitosamente.",
-            confidence: 0,
-          }
-        ],
-      };
-
-      addSession(newSession);
-      setCurrentSessionId(newSession.id);
-      await refresh();
-
-      setIsProcessing(false);
-
-      const finishCallback = onSuccess || onCreated;
-      if (finishCallback) {
-        finishCallback(newSession);
-      }
-      onClose();
-    } catch (err: any) {
-      console.error("Error durante transcripción:", err);
-      setError(err?.message || "Error al procesar el audio en el servidor.");
-      setIsProcessing(false);
+    const file = selectedFile;
+    onClose();
+    const finishCallback = onSuccess || onCreated;
+    if (finishCallback) {
+      finishCallback({ id: "pending" } as AudioSession);
     }
+    void transcribeFile(file);
   };
 
   return (
@@ -332,29 +263,10 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
           </div>
 
           {/* Workspace category selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-mono text-gray-400 block mb-1">Espacio de Trabajo:</label>
-              <select
-                value={space}
-                onChange={(e) => setSpace(e.target.value)}
-                className="w-full bg-[#18233e] border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-              >
-                <option value="Eureka Executive">Eureka Executive</option>
-                <option value="Finanzas & Legal">Finanzas & Legal</option>
-                <option value="Producto & UX">Producto & UX</option>
-                <option value="Investigación Médica">Investigación Médica</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-mono text-gray-400 block mb-1">Motor del servidor:</label>
-              <div className="w-full bg-[#0d1424] border border-gray-800 rounded-lg px-3 py-2 text-xs text-cyan-400 font-medium">
-                {engineStatus
-                  ? `${engineStatus.execution_mode === "api" ? "API remota" : "Whisper local"} · ${engineStatus.active_model || "sin modelo"}`
-                  : "El modo lo define el servidor al iniciar la transcripción."}
-              </div>
-            </div>
+          <div className="w-full bg-[#0d1424] border border-gray-800 rounded-lg px-3 py-2 text-xs text-cyan-400 font-medium">
+            {currentUser?.role === "admin" && engineStatus
+              ? `${engineStatus.execution_mode === "api" ? "API remota" : "Whisper en el servidor"} · ${engineStatus.active_model || "sin modelo"}`
+              : "La transcripción empieza al confirmar y puedes seguir el avance en el espacio de trabajo."}
           </div>
 
           {/* Processing progress bar */}

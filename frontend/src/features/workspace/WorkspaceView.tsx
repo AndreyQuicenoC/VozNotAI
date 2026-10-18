@@ -9,6 +9,7 @@ import {
   exportToJson,
   searchTranscript,
 } from "../../utils/transcriptionParsers.ts";
+import { formatFileSize, formatInferenceCost } from "../../utils/costCalculator.ts";
 
 interface WorkspaceViewProps {
   onNavigate: (path: string) => void;
@@ -25,12 +26,24 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
     currentUser,
     settings,
     updateSettings,
+    updateUser,
+    refresh,
   } = useVozNotStore();
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
+  const processing = sessions.some((session) => session.status === "Procesando");
+  useEffect(() => {
+    if (!processing) return;
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [processing, refresh]);
   const [sessionSearch, setSessionSearch] = useState("");
   const [sessionFilter, setSessionFilter] = useState<"hoy" | "semana" | "fijadas">("hoy");
-  const [transcriptSearch, setTranscriptSearch] = useState("Whisper local");
+  const [transcriptSearch, setTranscriptSearch] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
 
   // Editable session title
@@ -154,7 +167,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
               <div class="meta">
                 <strong>Archivo:</strong> ${activeSession?.title} &bull; 
                 <strong>Duración:</strong> ${activeSession?.formattedDuration} &bull; 
-                <strong>Inferencia:</strong> Whisper Local CUDA (RTX 4090) &bull; 
+                <strong>Costo:</strong> ${formatInferenceCost(activeSession?.durationSeconds || 0, settings.ratePerMinuteUsd, activeSession?.estimatedCostUsd)} &bull; 
                 <strong>Fecha:</strong> ${new Date().toLocaleDateString()}
               </div>
               <div>
@@ -227,7 +240,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
   const filteredSessions = sessions.filter((s) => {
     const matchesSearch = s.title.toLowerCase().includes(sessionSearch.toLowerCase());
     if (!matchesSearch) return false;
-    if (sessionFilter === "fijadas") return s.tags?.includes("Confidencial");
+    if (sessionFilter === "fijadas") return s.tags?.some((tag) => tag.toLowerCase() === "fijada");
     return true;
   });
 
@@ -303,23 +316,38 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
 
               {/* Metadata Chips */}
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                <span className="px-2 py-0.5 rounded bg-[#191f30] text-[#c5c5d7] text-xs border border-[#24293b]">
-                  Finanzas
-                </span>
-                <span className="px-2 py-0.5 rounded bg-[#93000a]/30 text-[#ffb4ab] text-xs flex items-center gap-1 border border-[#ffb4ab]/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffb4ab]"></span>
-                  Confidencial
-                </span>
-                <span className="px-2 py-0.5 rounded bg-[#191f30] text-[#c5c5d7] text-xs border border-[#24293b]">
-                  Sprint Review
-                </span>
-                <button
-                  type="button"
-                  className="px-2 py-0.5 rounded bg-[#24293b] text-[#48d9e8] hover:bg-[#48d9e8]/15 text-xs flex items-center gap-0.5 transition-colors border border-[#48d9e8]/20"
+                {(activeSession?.tags ?? []).map((tag) => (
+                  <span key={tag} className="px-2 py-0.5 rounded bg-[#191f30] text-[#c5c5d7] text-xs border border-[#24293b]">
+                    {tag}
+                  </span>
+                ))}
+                <form
+                  className="flex items-center gap-1"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const tag = tagDraft.trim();
+                    if (!tag || !activeSession || activeSession.id.startsWith("pending-")) return;
+                    if ((activeSession.tags ?? []).some((item) => item.toLowerCase() === tag.toLowerCase())) {
+                      setTagDraft("");
+                      return;
+                    }
+                    void updateSession(activeSession.id, { tags: [...(activeSession.tags ?? []), tag] });
+                    setTagDraft("");
+                  }}
                 >
-                  <span className="material-symbols-outlined text-[13px]">add</span>
-                  <span>Etiqueta</span>
-                </button>
+                  <input
+                    value={tagDraft}
+                    onChange={(event) => setTagDraft(event.target.value)}
+                    placeholder="Nueva etiqueta"
+                    className="w-28 bg-[#080e1e] text-[#dde2f9] text-xs px-2 py-0.5 rounded border border-[#24293b] focus:outline-none focus:border-[#48d9e8]"
+                  />
+                  <button
+                    type="submit"
+                    className="px-2 py-0.5 rounded bg-[#24293b] text-[#48d9e8] text-xs border border-[#48d9e8]/20"
+                  >
+                    Añadir
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -343,8 +371,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
                   }`}
                 >
                   <span className="material-symbols-outlined text-[16px]">memory</span>
-                  <span>Whisper Local (GPU RTX 4090)</span>
-                  <span className="px-1 py-0.2 rounded bg-black/20 font-['Space_Grotesk'] text-[10px]">1.2x</span>
+                  <span>Motor del servidor</span>
                 </button>
                 <button
                   type="button"
@@ -361,8 +388,8 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
               </div>
             ) : (
               <div className="bg-[#080e1e] px-3.5 py-2 rounded-xl flex items-center gap-2 border border-[#24293b]/70 text-xs text-[#dde2f9]">
-                <span className="material-symbols-outlined text-[#48d9e8] text-[18px]">verified_user</span>
-                <span className="font-medium">Inferencia Soberana (Clúster)</span>
+                <span className="material-symbols-outlined text-[#48d9e8] text-[18px]">graphic_eq</span>
+                <span className="font-medium">{processing ? "Transcribiendo…" : "Transcripción"}</span>
               </div>
             )}
 
@@ -370,11 +397,13 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
             <div className="group relative flex items-center">
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#191f30] text-[#48d9e8] text-xs font-medium border border-[#48d9e8]/20 cursor-help">
                 <span className="material-symbols-outlined text-[16px]">lock</span>
-                <span className="font-['Space_Grotesk']">Zero-Data Retention</span>
+                <span className="font-['Space_Grotesk']">{currentUser?.role === "admin" ? "Detalle del motor" : "Sesión privada"}</span>
               </div>
               <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-[#2f3446] text-[#dde2f9] text-xs rounded-xl shadow-2xl z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity border border-[#48d9e8]/30">
-                <p className="font-semibold text-[#48d9e8] mb-1">Inferencia 100% Local</p>
-                El audio no sale del cluster Eureka / ClustLayer. Los modelos CUDA se ejecutan en VRAM cifrada en reposo.
+                <p className="font-semibold text-[#48d9e8] mb-1">Tu audio</p>
+                {currentUser?.role === "admin"
+                  ? "El administrador ve el modo configurado en el servidor."
+                  : "Solo tu cuenta puede abrir este audio y su texto."}
               </div>
             </div>
 
@@ -382,32 +411,51 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
             <div className="flex items-center gap-2">
               <div className="relative">
                 <select
-                  value={settings.defaultLanguage}
-                  onChange={(e) => updateSettings({ defaultLanguage: e.target.value })}
-                  aria-label="Idioma del audio de entrada"
+                  value={currentUser?.preferredLanguage || "auto"}
+                  onChange={(e) => {
+                    void updateUser({ preferredLanguage: e.target.value });
+                  }}
+                  aria-label="Idioma preferido de transcripción"
                   className="appearance-none bg-[#191f30] pl-3 pr-8 py-1.5 rounded-lg text-[#dde2f9] text-xs border border-[#24293b] focus:outline-none focus:ring-1 focus:ring-[#48d9e8] cursor-pointer"
                 >
-                  <option value="Español (Auto 99.4%)">Español (Auto 99.4%)</option>
-                  <option value="Inglés (En-US 99.8%)">Inglés (En-US 99.8%)</option>
-                  <option value="Portugués (PT-BR 98.9%)">Portugués (PT-BR 98.9%)</option>
-                  <option value="Alemán (DE 97.2%)">Alemán (DE 97.2%)</option>
+                  <option value="auto">Detección automática</option>
+                  <option value="es">Español</option>
+                  <option value="en">Inglés</option>
+                  <option value="pt">Portugués</option>
+                  <option value="fr">Francés</option>
                 </select>
                 <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-base text-[#8f8fa0]">
                   expand_more
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSaveSuccessMsg("Versión v2.4 guardada exitosamente");
-                  setTimeout(() => setSaveSuccessMsg(""), 2500);
-                }}
-                className="px-3.5 py-1.5 rounded-lg bg-[#bac3ff] text-[#001f90] text-xs font-semibold flex items-center gap-1.5 shadow-md hover:bg-[#dee0ff] transition-all active:scale-95"
-              >
-                <span className="material-symbols-outlined text-[16px]">save</span>
-                <span>Guardar v2.4</span>
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setExportOpen((open) => !open)}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#bac3ff] text-[#001f90] text-xs font-semibold flex items-center gap-1.5 shadow-md hover:bg-[#dee0ff] transition-all"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  <span>Exportar</span>
+                </button>
+                {exportOpen && (
+                  <div className="absolute right-0 mt-2 w-36 rounded-xl bg-[#151b2c] border border-[#24293b] shadow-xl z-30 p-1">
+                    {(["txt", "srt", "vtt", "json", "pdf"] as const).map((format) => (
+                      <button
+                        key={format}
+                        type="button"
+                        onClick={() => {
+                          handleExport(format);
+                          setExportOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-lg text-xs text-[#dde2f9] hover:bg-[#24293b] uppercase"
+                      >
+                        {format}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -417,31 +465,31 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#48d9e8] text-[16px]">timelapse</span>
             <span>
-              Duración: <strong className="text-[#dde2f9]">{activeSession?.formattedDuration || "42m 18s"}</strong>
+              Duración: <strong className="text-[#dde2f9]">{activeSession?.formattedDuration || "00:00"}</strong>
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#48d9e8] text-[16px]">graphic_eq</span>
             <span>
-              Formato: <strong className="text-[#dde2f9]">{activeSession?.format || "FLAC 24-bit 48kHz"}</strong>
+              Formato: <strong className="text-[#dde2f9]">{activeSession?.format || "AUDIO"}</strong>
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#48d9e8] text-[16px]">folder_zip</span>
             <span>
-              Tamaño: <strong className="text-[#dde2f9]">{activeSession?.fileSizeFormatted || "384.2 MB"}</strong>
+              Tamaño: <strong className="text-[#dde2f9]">{activeSession?.fileSizeBytes ? formatFileSize(activeSession.fileSizeBytes) : "Sin tamaño"}</strong>
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#48d9e8] text-[16px]">account_tree</span>
             <span>
-              Canales: <strong className="text-[#dde2f9]">{activeSession?.channels || "Estéreo L/R"}</strong>
+              Estado: <strong className="text-[#dde2f9]">{activeSession?.status || "Sin audio"}</strong>
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#48d9e8] text-[16px]">receipt_long</span>
             <span>
-              Inferencia: <strong className="text-[#48d9e8]">$0.00 (Local)</strong>
+              Costo: <strong className="text-[#48d9e8]">{activeSession?.status === "Procesando" ? "Calculando…" : formatInferenceCost(activeSession?.durationSeconds || 0, settings.ratePerMinuteUsd, activeSession?.estimatedCostUsd)}</strong>
             </span>
           </div>
           <div className="flex items-center gap-2 justify-end">
@@ -453,7 +501,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
             ) : (
               <>
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span className="text-[#dde2f9]">Custodia: Soberana</span>
+                <span className="text-[#dde2f9]">{processing ? "Generando texto" : "Listo"}</span>
               </>
             )}
           </div>
@@ -487,21 +535,10 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
         >
           {/* Chapter markers overhead */}
           <div className="flex justify-between items-center px-1 text-[#8f8fa0] font-['Space_Grotesk'] text-[11px] z-10">
-            <span className="text-[#48d9e8] hover:underline" onClick={(e) => { e.stopPropagation(); seekTo(0); }}>
-              00:00 [Intro ClustLayer]
+            <span className="text-[#48d9e8]" onClick={(e) => { e.stopPropagation(); seekTo(0); }}>
+              00:00
             </span>
-            <span className="hover:underline" onClick={(e) => { e.stopPropagation(); seekTo(492); }}>
-              08:12 [Métricas Q2]
-            </span>
-            <span className="text-[#cebdff] font-semibold hover:underline" onClick={(e) => { e.stopPropagation(); seekTo(872); }}>
-              14:32 [Decisión Whisper]
-            </span>
-            <span className="hover:underline" onClick={(e) => { e.stopPropagation(); seekTo(1660); }}>
-              27:40 [Roadmap 2025]
-            </span>
-            <span className="hover:underline" onClick={(e) => { e.stopPropagation(); seekTo(2538); }}>
-              42:18 [Cierre]
-            </span>
+            <span>{activeSession?.formattedDuration || "00:00"}</span>
           </div>
 
           {/* Rendered Interactive Dynamic Audio Waves */}
@@ -803,7 +840,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
             className="w-full py-2.5 px-3 rounded-xl bg-[#191f30] hover:bg-[#24293b] text-[#48d9e8] text-xs font-semibold flex items-center justify-center gap-2 transition-colors border border-[#48d9e8]/20"
           >
             <span className="material-symbols-outlined text-[18px]">cloud_upload</span>
-            <span>Importar Archivo Local</span>
+            <span>Subir audio</span>
           </button>
         </section>
 
@@ -821,7 +858,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
                   Transcripción Sincronizada
                 </h2>
                 <span className="text-[11px] text-[#c5c5d7]">
-                  Diarización: {activeSession?.segments?.length ? "3 hablantes identificados" : "Analizando timbre vocal"}
+                  {activeSession?.status === "Procesando"
+                    ? "Generando transcripción"
+                    : `${activeSession?.segments?.length ?? 0} segmentos`}
                 </span>
               </div>
             </div>
@@ -909,11 +948,6 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
                         {seg.speakerRole && (
                           <span className="px-2 py-0.2 rounded-full bg-[#48d9e8]/10 text-[#48d9e8] text-[10px]">
                             {seg.speakerRole}
-                          </span>
-                        )}
-                        {isCurrent && (
-                          <span className="px-1.5 py-0.5 rounded bg-[#24293b] text-[#48d9e8] font-['Space_Grotesk'] text-[10px]">
-                            CUDA Core: Activo
                           </span>
                         )}
                       </div>
@@ -1162,7 +1196,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
       <div className="flex items-center justify-between px-1 text-[#8f8fa0]/70 text-xs pb-4">
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-[#48d9e8]"></span>
-          <span>VozNotAI v2.4 • Infraestructura ClustLayer • Desarrollado por Andrey Quiceno</span>
+          <span>VozNotAI • ClustLayer / Eureka • Andrey Quiceno</span>
         </div>
         <div className="flex items-center gap-2 font-['Space_Grotesk'] text-[11px]">
           <span>Model: whisper-large-v3-fp16</span>

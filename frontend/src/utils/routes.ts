@@ -60,6 +60,12 @@ const ROUTE_ALIASES: Record<string, AppRoute> = {
 /**
  * Normalizes any route string or URL hash to a canonical AppRoute
  */
+export function isKnownRoute(rawPath: string): boolean {
+  const clean = rawPath.replace(/^#\/?/, "").trim().toLowerCase();
+  if (!clean) return true;
+  return Boolean(ROUTE_ALIASES[clean]);
+}
+
 export function normalizeRoute(rawPath: string): AppRoute {
   const clean = rawPath.replace(/^#\/?/, "").trim().toLowerCase();
   if (!clean) return "home";

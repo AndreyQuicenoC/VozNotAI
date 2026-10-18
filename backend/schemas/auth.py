@@ -42,6 +42,7 @@ class UserResponse(BaseModel):
     is_verified: bool
     max_minutes_quota: int
     preferred_mode: str
+    preferred_language: str = "auto"
     created_at: datetime
     last_login_at: Optional[datetime] = None
 
@@ -80,5 +81,6 @@ class UserProfileUpdate(BaseModel):
     last_name: Optional[str] = Field(None, min_length=2, max_length=100)
     phone: Optional[str] = Field(None, max_length=30)
     birth_date: Optional[date] = None
-    avatar_url: Optional[str] = None
+    avatar_url: Optional[str] = Field(None, max_length=250000)
     preferred_mode: Optional[str] = None
+    preferred_language: Optional[str] = Field(None, pattern="^(auto|es|en|pt|fr)$")

@@ -30,9 +30,19 @@ class ConversationService:
             raise ResourceNotFoundException("Conversación", conversation_id)
         return conv
 
-    def update_title(self, user_id: str, conversation_id: str, new_title: str) -> Conversation:
+    def update_conversation(
+        self,
+        user_id: str,
+        conversation_id: str,
+        new_title: Optional[str] = None,
+        tags: Optional[str] = None,
+    ) -> Conversation:
         conv = self.get(user_id, conversation_id)
-        conv.title = new_title.strip()
+        if new_title is not None and new_title.strip():
+            conv.title = new_title.strip()
+        if tags is not None:
+            cleaned = [part.strip() for part in tags.split(",") if part.strip()]
+            conv.tags = ", ".join(cleaned[:8])
         self.db.commit()
         self.db.refresh(conv)
         return conv

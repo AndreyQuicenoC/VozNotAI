@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeRoute, isAdminOnlyRoute, isPublicRoute, isAccessibleWithoutAuth } from "./routes.ts";
+import { normalizeRoute, isAdminOnlyRoute, isPublicRoute, isAccessibleWithoutAuth, isKnownRoute } from "./routes.ts";
 
 test("normalizeRoute resolves English canonical routes accurately", () => {
   assert.equal(normalizeRoute("dashboard"), "dashboard");
@@ -65,4 +65,7 @@ test("isPublicRoute identifies public auth and landing routes", () => {
   assert.equal(isPublicRoute("admin"), false);
   assert.equal(isAccessibleWithoutAuth("manual"), true);
   assert.equal(isAccessibleWithoutAuth("dashboard"), false);
+  assert.equal(isKnownRoute("#/dashboard"), true);
+  assert.equal(isKnownRoute("#/ruta-inexistente"), false);
+  assert.equal(isKnownRoute(""), true);
 });
