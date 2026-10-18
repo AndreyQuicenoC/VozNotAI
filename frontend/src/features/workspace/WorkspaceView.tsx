@@ -28,6 +28,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
     updateSettings,
     updateUser,
     refresh,
+    deleteSession,
   } = useVozNotStore();
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -317,8 +318,22 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
               {/* Metadata Chips */}
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
                 {(activeSession?.tags ?? []).map((tag) => (
-                  <span key={tag} className="px-2 py-0.5 rounded bg-[#191f30] text-[#c5c5d7] text-xs border border-[#24293b]">
+                  <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#191f30] text-[#c5c5d7] text-xs border border-[#24293b]">
                     {tag}
+                    {!activeSession.id.startsWith("pending-") && (
+                      <button
+                        type="button"
+                        aria-label={`Quitar etiqueta ${tag}`}
+                        onClick={() => {
+                          void updateSession(activeSession.id, {
+                            tags: (activeSession.tags ?? []).filter((item) => item !== tag),
+                          });
+                        }}
+                        className="text-[#ffb4ab] hover:text-white"
+                      >
+                        ×
+                      </button>
+                    )}
                   </span>
                 ))}
                 <form
@@ -429,6 +444,18 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
                 </span>
               </div>
 
+              <button
+                type="button"
+                disabled={!activeSession || activeSession.id.startsWith("pending-")}
+                onClick={() => {
+                  if (!activeSession || activeSession.id.startsWith("pending-")) return;
+                  if (!window.confirm(`¿Eliminar "${activeSession.title}" y su audio guardado?`)) return;
+                  void deleteSession(activeSession.id);
+                }}
+                className="px-3 py-1.5 rounded-lg border border-[#ffb4ab]/30 text-[#ffb4ab] text-xs font-semibold hover:bg-[#ffb4ab]/10 disabled:opacity-40"
+              >
+                Eliminar audio
+              </button>
               <div className="relative">
                 <button
                   type="button"

@@ -41,7 +41,9 @@ class ProviderFactory:
 
         elif mode == "api":
             logger.info("Factory: Verificando configuración para RemoteTranscriptionProvider...")
-            if not remote_enabled and not remote_key:
+            missing_key = not (remote_key and remote_key.strip())
+            disabled_in_settings = db is not None and not remote_enabled
+            if missing_key or disabled_in_settings:
                 raise TranscriptionProviderException(
                     detail="El modo de ejecución está fijado en 'api', pero el proveedor remoto no está habilitado o carece de clave API.",
                     provider="remote_api",

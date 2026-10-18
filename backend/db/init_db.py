@@ -51,6 +51,18 @@ def init_db(db: Session) -> None:
         )
         db.add(sys_settings)
         db.commit()
+    else:
+        sys_settings.execution_mode = settings.TRANSCRIPTION_MODE.lower()
+        sys_settings.local_model_name = settings.LOCAL_WHISPER_MODEL
+        sys_settings.remote_endpoint = settings.TRANSCRIPTION_API_BASE_URL
+        sys_settings.remote_model_name = settings.TRANSCRIPTION_API_MODEL
+        sys_settings.remote_provider_enabled = bool(settings.TRANSCRIPTION_API_KEY.strip())
+        if settings.TRANSCRIPTION_API_KEY.strip():
+            sys_settings.remote_api_key_masked = "********"
+        sys_settings.usage_rate_per_audio_minute = Decimal(str(settings.USAGE_RATE_PER_MINUTE))
+        sys_settings.maximum_audio_duration_seconds = settings.MAX_AUDIO_DURATION_SECONDS
+        sys_settings.maximum_upload_size_bytes = settings.MAX_UPLOAD_SIZE_BYTES
+        db.commit()
 
     # 2. Bootstrap Administrator only when an explicit password is provided.
     # Never invent a known default password or sample conversations.

@@ -480,7 +480,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                             <span className="material-symbols-outlined text-[18px]">file_download</span>
                           </button>
                           <button
-                            onClick={() => deleteSession(sess.id)}
+                            onClick={() => {
+                              if (!window.confirm(`¿Eliminar "${sess.title}" y su audio guardado?`)) return;
+                              void deleteSession(sess.id);
+                            }}
                             className="p-1.5 rounded-lg hover:bg-[#24293b] text-[#c5c5d7] hover:text-[#ffb4ab] transition-colors"
                             title="Eliminar Transcripción"
                           >
