@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useVozNotStore } from "../../services/store.ts";
 import { QuickUploadModal } from "../../components/shared/QuickUploadModal.tsx";
 import { exportToSrt, exportToPlainText } from "../../utils/transcriptionParsers.ts";
@@ -12,6 +12,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [modeFilter, setModeFilter] = useState<"local" | "cloud">("local");
   const [currentPage, setCurrentPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(sessions.length / 10));
+  useEffect(() => {
+    if (currentPage > pageCount) setCurrentPage(pageCount);
+  }, [currentPage, pageCount]);
 
   // Download SRT/TXT for recent sessions
   const handleDownload = (sess: typeof sessions[0], format: "srt" | "txt") => {
@@ -80,9 +84,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <div className="flex flex-wrap items-center gap-3 text-[#c5c5d7] text-xs">
               <span className="flex items-center gap-1.5 text-[#48d9e8] font-medium">
                 <span className="material-symbols-outlined text-[16px]">verified_user</span>
-                {engineStatus?.local_available
-                  ? `Motor local ${engineStatus.active_model}: disponible`
-                  : engineStatus?.local_error || "Motor local aún no verificado en este equipo"}
+                {currentUser.role === "admin"
+                  ? engineStatus?.local_available
+                    ? `Motor del servidor ${engineStatus.active_model}: disponible`
+                    : engineStatus?.local_error || "Motor aún no verificado en este equipo"
+                  : "Listo para transcribir"}
               </span>
             </div>
           </div>
@@ -163,7 +169,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span className="text-[#dde2f9] font-semibold">{notes.length}</span>
             </div>
             <p className="text-[11px] text-[#8f8fa0]">
-              Local: {(usage?.local_audio_minutes ?? 0).toFixed(2)} min · API: {(usage?.api_audio_minutes ?? 0).toFixed(2)} min
+              {currentUser.role === "admin"
+                ? `Servidor: ${(usage?.local_audio_minutes ?? 0).toFixed(2)} min · API: ${(usage?.api_audio_minutes ?? 0).toFixed(2)} min`
+                : "Minutos acumulados de tus audios"}
             </p>
           </div>
         </div>
@@ -212,7 +220,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 {engineStatus?.ffmpeg_installed ? "FFmpeg detectado" : "FFmpeg no detectado"}
               </span>
               <span className="text-[#cebdff] font-['Space_Grotesk'] font-semibold">
-                {engineStatus?.execution_mode === "api" ? "Modo API" : "Modo local"}
+                {currentUser.role === "admin"
+                  ? engineStatus?.execution_mode === "api"
+                    ? "Modo API"
+                    : "Motor del servidor"
+                  : "Disponible"}
               </span>
             </div>
             {/* Sparkline acústica SVG */}
@@ -278,7 +290,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           ) : (
             <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#080e1e] self-start border border-[#24293b]/60 text-xs text-[#48d9e8] font-medium">
               <span className="material-symbols-outlined text-[16px]">verified_user</span>
-              <span>Modo Inferencia: Transcripción Soberana</span>
+              <span>Listo para transcribir</span>
             </div>
           )}
         </div>
@@ -298,18 +310,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </span>
           </p>
           <p className="text-xs text-[#c5c5d7] mt-1.5 max-w-xl">
-            Formatos soportados: WAV, MP3, M4A, FLAC, OGG, WebM. Tamaño máximo: hasta 500 MB por sesión. Separación de
-            interlocutores y diarización automática habilitada.
+            Formatos soportados: WAV, MP3, M4A, FLAC y OGG. La grabación del micrófono se convierte a WAV. Tamaño máximo: 25 MB y 2 minutos.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
             <span className="px-2.5 py-1 rounded bg-[#191f30] text-[#c5c5d7] font-['Space_Grotesk'] text-xs border border-[#24293b]">
-              Diarización pyannote: Activada
+              Límite: 25 MB
             </span>
             <span className="px-2.5 py-1 rounded bg-[#191f30] text-[#c5c5d7] font-['Space_Grotesk'] text-xs border border-[#24293b]">
-              Idioma: Detección Automática (Multi-idioma)
+              Duración: 120 segundos
             </span>
             <span className="px-2.5 py-1 rounded bg-[#191f30] text-[#c5c5d7] font-['Space_Grotesk'] text-xs border border-[#24293b]">
-              Supresión de Ruido Neural: ON
+              Motor: el que configuró el servidor
             </span>
           </div>
         </div>
@@ -376,7 +387,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#24293b]/50 text-[#dde2f9]">
-                  {sessions.slice(0, 4).map((sess, idx) => (
+                  {sessions.slice((currentPage - 1) * 10, currentPage * 10).map((sess, idx) => (
                     <tr key={sess.id} className="hover:bg-[#24293b]/40 transition-colors">
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
@@ -412,7 +423,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                       <td className="py-3.5 px-3 whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded bg-[#080e1e] text-[#48d9e8] text-[11px] font-medium flex items-center gap-1 w-fit border border-[#48d9e8]/20">
                           <span className="material-symbols-outlined text-[12px]">shield</span>
-                          {sess.mode}
+                          {currentUser?.role === "admin" ? sess.mode : "Audio"}
                         </span>
                       </td>
                       <td className="py-3.5 px-3 whitespace-nowrap">
@@ -469,7 +480,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                             <span className="material-symbols-outlined text-[18px]">file_download</span>
                           </button>
                           <button
-                            onClick={() => deleteSession(sess.id)}
+                            onClick={() => {
+                              if (!window.confirm(`¿Eliminar "${sess.title}" y su audio guardado?`)) return;
+                              void deleteSession(sess.id);
+                            }}
                             className="p-1.5 rounded-lg hover:bg-[#24293b] text-[#c5c5d7] hover:text-[#ffb4ab] transition-colors"
                             title="Eliminar Transcripción"
                           >
@@ -485,7 +499,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
             {/* Pagination Controls */}
             <div className="p-3 bg-[#24293b]/50 flex items-center justify-between text-[#c5c5d7] text-xs">
-              <span>Mostrando 4 de {sessions.length} transcripciones archivadas</span>
+              <span>
+                Mostrando {sessions.length === 0 ? 0 : (currentPage - 1) * 10 + 1}
+                –{Math.min(currentPage * 10, sessions.length)} de {sessions.length} transcripciones
+              </span>
               <div className="flex items-center gap-1 font-['Space_Grotesk']">
                 <button
                   disabled={currentPage === 1}
@@ -494,16 +511,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 >
                   Anterior
                 </button>
-                <button className="px-2 py-1 rounded bg-[#48d9e8] text-[#00363b] font-bold">1</button>
-                <button className="px-2 py-1 rounded bg-[#191f30] hover:bg-[#2f3446] text-[#dde2f9] transition-colors">
-                  2
-                </button>
-                <button className="px-2 py-1 rounded bg-[#191f30] hover:bg-[#2f3446] text-[#dde2f9] transition-colors">
-                  3
-                </button>
+                {Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-2 py-1 rounded transition-colors ${
+                      page === currentPage
+                        ? "bg-[#48d9e8] text-[#00363b] font-bold"
+                        : "bg-[#191f30] hover:bg-[#2f3446] text-[#dde2f9]"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
                 <button
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  className="px-2 py-1 rounded bg-[#191f30] hover:bg-[#2f3446] text-[#dde2f9] transition-colors"
+                  disabled={currentPage >= pageCount}
+                  onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
+                  className="px-2 py-1 rounded bg-[#191f30] hover:bg-[#2f3446] text-[#dde2f9] transition-colors disabled:opacity-40"
                 >
                   Siguiente
                 </button>
@@ -579,7 +603,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </div>
             </div>
             <p className="text-xs text-[#c5c5d7] leading-relaxed">
-              Arquitectura de transcripción local zero-trust desarrollada por{" "}
+              Guía de uso de VozNotAI, desarrollada por{" "}
               <strong className="text-[#dde2f9]">Andrey Quiceno</strong>. Consulta la guía técnica de comandos, atajos
               de scrubbing y control de modelos.
             </p>

@@ -29,6 +29,8 @@ class TranscriptionResponse(BaseModel):
     error_code: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
+    file_size_bytes: int = 0
+    estimated_cost_usd: Optional[float] = None
 
     class Config:
         from_attributes = True

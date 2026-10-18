@@ -13,7 +13,8 @@ COPY backend /app/backend
 
 ENV PYTHONPATH=/app
 ENV APP_ENV=production
-ENV COOKIE_SECURE=false
+ENV COOKIE_SECURE=true
+ENV UPLOAD_DIR=/app/uploads
 
 EXPOSE 8000
 

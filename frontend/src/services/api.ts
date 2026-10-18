@@ -148,9 +148,13 @@ class ApiClient {
   }
 
   async updateConversationTitle(id: string, title: string) {
+    return this.updateConversation(id, { title });
+  }
+
+  async updateConversation(id: string, data: { title?: string; tags?: string }) {
     return this.request<Record<string, unknown>>(`/conversations/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(data),
     });
   }
 

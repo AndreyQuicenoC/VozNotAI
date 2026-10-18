@@ -10,6 +10,7 @@ class Conversation(Base, TimestampMixin):
 
     owner_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     title: Mapped[str] = mapped_column(String(200), default="Nueva Conversación", nullable=False)
+    tags: Mapped[str] = mapped_column(String(400), default="", nullable=False)
     archived_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships

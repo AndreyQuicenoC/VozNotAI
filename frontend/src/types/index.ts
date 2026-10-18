@@ -15,6 +15,7 @@ export interface User {
   roleTitle: string;
   organization: string;
   avatarUrl: string;
+  preferredLanguage: string;
   status: "Activo" | "Limitado" | "Suspendido";
   totalConversations: number;
   accumulatedMinutes: number;
@@ -53,6 +54,7 @@ export interface AudioSession {
   tags?: string[];
   transcriptionId?: string;
   audioUrl?: string;
+  estimatedCostUsd?: number;
 }
 
 export interface SmartNote {

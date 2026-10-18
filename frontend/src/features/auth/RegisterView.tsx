@@ -61,7 +61,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onNavigate }) => {
             Crear Cuenta en VozNotAI
           </h2>
           <p className="text-xs text-gray-400">
-            Habilita tu acceso local de inferencia Whisper acelerada por CUDA.
+            Crea tu cuenta para subir audio y guardar la transcripción.
           </p>
         </div>
 

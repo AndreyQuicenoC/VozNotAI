@@ -1,7 +1,9 @@
 import React, { useState } from "react";
+import { downloadManualHtml, downloadManualMarkdown } from "../../utils/manualExport.ts";
 
 export const ManualView: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>("inicio");
+  const [exportOpen, setExportOpen] = useState(false);
 
   const sections = [
     { id: "inicio", title: "1. Guía Rápida de Inicio", icon: "rocket_launch" },
@@ -32,13 +34,40 @@ export const ManualView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => window.print()}
-          className="px-4 py-2.5 rounded-xl bg-[#18233e] hover:bg-[#202e52] border border-gray-700 text-xs font-semibold text-gray-200 transition-colors flex items-center gap-2 cursor-pointer shadow-sm self-start md:self-auto"
-        >
-          <span className="material-symbols-outlined text-sm text-cyan-400">print</span>
-          Imprimir / Guardar como PDF
-        </button>
+        <div className="relative self-start md:self-auto">
+          <button
+            type="button"
+            onClick={() => setExportOpen((open) => !open)}
+            className="px-4 py-2.5 rounded-xl bg-[#18233e] hover:bg-[#202e52] border border-gray-700 text-xs font-semibold text-gray-200 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
+          >
+            <span className="material-symbols-outlined text-sm text-cyan-400">download</span>
+            Descargar manual completo
+          </button>
+          {exportOpen && (
+            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-gray-700 bg-[#0f172a] shadow-xl z-20 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  downloadManualMarkdown();
+                  setExportOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-200 hover:bg-[#18233e]"
+              >
+                Markdown (.md)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  downloadManualHtml();
+                  setExportOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-200 hover:bg-[#18233e]"
+              >
+                HTML listo para PDF (.html)
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Split Layout: Table of Contents & Guide Content */}

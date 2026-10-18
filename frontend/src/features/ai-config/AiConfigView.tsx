@@ -3,7 +3,7 @@ import { useVozNotStore } from "../../services/store.ts";
 import { loadBalancer, type SystemInferenceMode } from "../../services/loadBalancer.ts";
 
 export const AiConfigView: React.FC = () => {
-  const { currentUser, settings, updateSettings } = useVozNotStore();
+  const { currentUser, settings, updateSettings, engineStatus, updateUser } = useVozNotStore();
   const isAdmin = currentUser?.role === "admin";
 
   const [lbState, setLbState] = useState(loadBalancer.getState());
@@ -17,9 +17,10 @@ export const AiConfigView: React.FC = () => {
   const [whisperModel, setWhisperModel] = useState(settings.whisperModel);
 
   // User personal states
-  const [preferredLang, setPreferredLang] = useState("auto");
-  const [autoPunctuation, setAutoPunctuation] = useState(true);
-  const [longAudioNotify, setLongAudioNotify] = useState(true);
+  const [preferredLang, setPreferredLang] = useState(currentUser?.preferredLanguage || "auto");
+  useEffect(() => {
+    if (currentUser?.preferredLanguage) setPreferredLang(currentUser.preferredLanguage);
+  }, [currentUser?.preferredLanguage]);
 
   useEffect(() => {
     return loadBalancer.subscribe(() => {
@@ -43,10 +44,11 @@ export const AiConfigView: React.FC = () => {
     setTimeout(() => setSaveToast(null), 4000);
   };
 
-  const handleSaveUserConfig = (e: React.FormEvent) => {
+  const handleSaveUserConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveToast("Preferencias personales de transcripción guardadas.");
-    setTimeout(() => setSaveToast(null), 3000);
+    const saved = await updateUser({ preferredLanguage: preferredLang });
+    setSaveToast(saved ? "Idioma preferido guardado." : "No se pudo guardar el idioma.");
+    setTimeout(() => setSaveToast(null), 4000);
   };
 
   return (
@@ -72,7 +74,7 @@ export const AiConfigView: React.FC = () => {
           <p className="text-xs text-gray-400 mt-1 max-w-2xl leading-relaxed">
             {isAdmin
               ? "Control exclusivo para administradores: asigna el motor del sistema (Local CUDA balanceado o API Cloud), gestiona los nodos de GPU y ajusta las políticas de distribución."
-              : "Ajusta tus parámetros personales para la generación de transcripciones y alertas de procesamiento."}
+              : "El motor, el modelo y FFmpeg los define el servidor. Esta cuenta no cambia ese ajuste."}
           </p>
         </div>
 
@@ -272,8 +274,10 @@ export const AiConfigView: React.FC = () => {
           <div className="p-4 rounded-xl bg-[#131b2e] border border-gray-800 text-xs text-gray-300 flex items-center gap-3">
             <span className="material-symbols-outlined text-cyan-400 text-xl">verified_user</span>
             <div>
-              <strong className="text-white block">Motor Gestionado Centralmente:</strong>
-              El sistema ejecuta las transcripciones utilizando el clúster balanceado de alta fidelidad configurado por el administrador.
+              <strong className="text-white block">Motor del servidor:</strong>
+              {engineStatus
+                ? " El servidor está listo para transcribir. El idioma que guardes se usa en los siguientes audios."
+                : " Aún no hay estado del motor. Recarga la sesión si este aviso permanece."}
             </div>
           </div>
 
@@ -295,27 +299,9 @@ export const AiConfigView: React.FC = () => {
               </select>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <label className="flex items-center gap-3 cursor-pointer text-xs text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={autoPunctuation}
-                  onChange={(e) => setAutoPunctuation(e.target.checked)}
-                  className="rounded border-gray-700 bg-[#18233e] text-cyan-500 focus:ring-0"
-                />
-                <span>Habilitar puntuación gramatical y mayúsculas automáticas en los párrafos</span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer text-xs text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={longAudioNotify}
-                  onChange={(e) => setLongAudioNotify(e.target.checked)}
-                  className="rounded border-gray-700 bg-[#18233e] text-cyan-500 focus:ring-0"
-                />
-                <span>Notificarme cuando una transcripción de más de 30 minutos finalice</span>
-              </label>
-            </div>
+            <p className="text-xs text-gray-400">
+              Este valor queda en tu cuenta. Al volver a entrar, el selector muestra el idioma guardado.
+            </p>
           </div>
 
           <div className="flex justify-end pt-4 border-t border-gray-800">

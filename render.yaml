@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: voznotai-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /api/v1/system/health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHONPATH
+        value: /app
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: TRANSCRIPTION_MODE
+        value: api
+      - key: DATABASE_URL
+        fromDatabase:
+          name: voznotai-db
+          property: connectionString
+      - key: APP_SECRET_KEY
+        generateValue: true
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: ADMIN_BOOTSTRAP_EMAIL
+        sync: false
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        sync: false
+      - key: TRANSCRIPTION_API_KEY
+        sync: false
+      - key: TRANSCRIPTION_API_BASE_URL
+        value: https://api.openai.com/v1
+      - key: TRANSCRIPTION_API_MODEL
+        value: whisper-1
+      - key: UPLOAD_DIR
+        value: /app/uploads
+    disk:
+      name: voznotai-uploads
+      mountPath: /app/uploads
+      sizeGB: 1
+
+databases:
+  - name: voznotai-db
+    plan: basic-256mb

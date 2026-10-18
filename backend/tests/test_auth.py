@@ -86,3 +86,27 @@ def test_password_recovery_and_reset_flow(client, customer_user_a):
         json={"email": customer_user_a.email, "password": "BrandNewPassword123!"},
     )
     assert login_res.status_code == 200
+
+
+def test_profile_saves_language_and_rejects_remote_avatar(client, customer_user_a):
+    token = create_access_token(customer_user_a.id, customer_user_a.role)
+    headers = {"Authorization": f"Bearer {token}"}
+    saved = client.put(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={"preferred_language": "es", "avatar_url": "data:image/jpeg;base64,abc"},
+    )
+    assert saved.status_code == 200
+    assert saved.json()["preferred_language"] == "es"
+    assert saved.json()["avatar_url"].startswith("data:image/")
+
+    rejected = client.put(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={"avatar_url": "https://example.com/foto.jpg"},
+    )
+    assert rejected.status_code == 400
+    assert rejected.json()["detail"]["code"] == "INVALID_AVATAR"
+
+    again = client.get("/api/v1/auth/me", headers=headers)
+    assert again.json()["preferred_language"] == "es"

@@ -28,7 +28,8 @@ class ConversationCreate(BaseModel):
 
 
 class ConversationUpdate(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    tags: Optional[str] = Field(None, max_length=400)
 
 
 class AudioAssetResponse(BaseModel):
@@ -52,6 +53,8 @@ class ConversationResponse(BaseModel):
     messages_count: int = 0
     audio_assets_count: int = 0
     notes_count: int = 0
+    file_size_bytes: int = 0
+    tags: str = ""
 
     class Config:
         from_attributes = True

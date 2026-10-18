@@ -1,5 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
+
+try:
+    import truststore
+
+    truststore.inject_into_ssl()
+except ImportError:
+    pass
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware

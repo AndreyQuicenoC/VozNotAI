@@ -23,6 +23,7 @@ La aplicación que se ejecuta está en `frontend/` y `backend/`. La carpeta `src
 | [Modelo de datos](docs/data-model.md) | Entidades persistentes y estados |
 | [Seguridad](docs/security.md) | Sesión, archivos, secretos y lo que no está certificado |
 | [Despliegue](docs/deployment.md) | Local, Docker y modo API |
+| [Vercel + Render](docs/deployment-vercel-render.md) | Frontend en Vercel, API y PostgreSQL en Render |
 | [Operación](docs/operations.md) | Salud, motor, respaldos |
 | [Pruebas](docs/testing.md) | Pytest, pruebas de Node y lo que falta |
 | [Calidad ISO/IEC 25010](docs/quality/iso-25010.md) | Decisiones y resultado medido |

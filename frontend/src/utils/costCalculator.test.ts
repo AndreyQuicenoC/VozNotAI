@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calculateEstimatedCost,
+  formatFileSize,
+  formatInferenceCost,
   calculateSavingsUSD,
   formatDuration,
   formatTimestampSrt,
@@ -23,6 +25,13 @@ test('calculateSavingsUSD calculates savings based on audio minutes', () => {
   // 1,420 minutes at $0.006/min = 8.52 USD
   assert.equal(calculateSavingsUSD(1420, DEFAULT_COMMERCIAL_API_RATE_PER_MIN), 8.52);
   assert.equal(calculateSavingsUSD(0), 0);
+});
+
+test('formatInferenceCost keeps short audio visible and formatFileSize uses stored bytes', () => {
+  assert.equal(formatInferenceCost(60, 0.006), '$0.006000');
+  assert.equal(formatInferenceCost(7.2, 0.006), '$0.000720');
+  assert.equal(formatFileSize(384.5 * 1024 * 1024), '384.50 MB');
+  assert.equal(formatFileSize(18000), '17.6 KB');
 });
 
 test('formatDuration handles mm:ss and hh:mm:ss properly', () => {
