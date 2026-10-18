@@ -10,7 +10,9 @@ Siga el `README.md` de la raíz. La API y el frontend se inician por separado.
 
 Antes de levantar Compose debe existir `.env` con `APP_SECRET_KEY` y, si quiere el primer administrador, las variables de bootstrap. El volumen `voznotai-data` guarda SQLite y los audios.
 
-No hay un destino de nube configurado. El workflow de GitHub Actions solo prueba; no despliega.
+Para **Vercel + Render** siga [deployment-vercel-render.md](deployment-vercel-render.md). Incluye `render.yaml`, `frontend/vercel.json` y variables para modo API con clave secreta en el servidor.
+
+El workflow de GitHub Actions solo prueba; no despliega automáticamente.
 
 ## Modo API
 

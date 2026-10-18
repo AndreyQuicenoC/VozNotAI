@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useVozNotStore } from "../../services/store.ts";
-import { calculateSavingsUSD } from "../../utils/costCalculator.ts";
+import { formatInferenceCost } from "../../utils/costCalculator.ts";
 
 export const ProfileView: React.FC = () => {
-  const { currentUser, settings, updateSettings, updateUser } = useVozNotStore();
+  const { currentUser, settings, updateSettings, updateUser, usage } = useVozNotStore();
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<"general" | "ai" | "usage" | "security">("general");
 
   // Editable user fields
-  const [name, setName] = useState(currentUser?.name || "Dr. Adolfo");
-  const [lastName, setLastName] = useState(currentUser?.lastName || "Quiceno");
+  const [name, setName] = useState(currentUser?.name || "");
+  const [lastName, setLastName] = useState(currentUser?.lastName || "");
   const [org, setOrg] = useState("ClustLayer • Eureka BioCluster");
   const [dept, setDept] = useState("División de Inteligencia Acústica & Salud");
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -39,6 +40,11 @@ export const ProfileView: React.FC = () => {
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
+  const handlePhoto = async (file: File) => {
+    const dataUrl = await resizeProfilePhoto(file);
+    await updateUser({ avatarUrl: dataUrl });
+  };
+
   if (!currentUser) {
     return (
       <div className="p-8 text-center text-gray-400">
@@ -47,12 +53,10 @@ export const ProfileView: React.FC = () => {
     );
   }
 
-  const quotaPercent = Math.min(
-    100,
-    Math.round((currentUser.minutesUsed / currentUser.monthlyQuota) * 100)
-  );
-
-  const savings = calculateSavingsUSD(currentUser.minutesUsed);
+  const minutesUsed = usage?.total_audio_minutes ?? currentUser.accumulatedMinutes ?? 0;
+  const quota = currentUser.maxMinutesQuota || 0;
+  const quotaPercent = quota > 0 ? Math.min(100, Math.round((minutesUsed / quota) * 100)) : 0;
+  const estimatedCost = usage?.estimated_cost_usd ?? currentUser.consumptionCostUsd ?? 0;
 
   return (
     <div className="space-y-8 animate-fade-in pb-16">
@@ -71,12 +75,34 @@ export const ProfileView: React.FC = () => {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className="relative">
-              <img
-                src={currentUser.avatarUrl}
-                alt={currentUser.name}
-                className="w-20 h-20 rounded-2xl border-2 border-cyan-500/40 object-cover shadow-lg"
+              {currentUser.avatarUrl ? (
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.name}
+                  className="w-20 h-20 rounded-2xl border-2 border-cyan-500/40 object-cover shadow-lg"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl border-2 border-cyan-500/40 bg-[#18233e] text-cyan-300 text-2xl font-bold flex items-center justify-center">
+                  {currentUser.name?.[0] || "U"}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className="absolute -bottom-2 -right-2 px-2 py-1 rounded-lg bg-cyan-500 text-slate-950 text-[10px] font-semibold"
+              >
+                Foto
+              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void handlePhoto(file);
+                }}
               />
-              <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-[#0e1629] rounded-full"></span>
             </div>
 
             <div className="space-y-1">
@@ -197,12 +223,20 @@ export const ProfileView: React.FC = () => {
       )}
 
       {/* Tab 2: AI Preferences */}
-      {activeTab === "ai" && (
+      {activeTab === "ai" && currentUser.role !== "admin" && (
+        <div className="p-6 md:p-8 rounded-2xl bg-[#0f172a] border border-gray-800 space-y-3">
+          <h2 className="text-base font-semibold text-white">Preferencias de transcripción</h2>
+          <p className="text-sm text-gray-300 leading-relaxed">
+            El idioma preferido se guarda en Ajustes. El modelo y el procesamiento los define el servidor para todas las cuentas.
+          </p>
+        </div>
+      )}
+      {activeTab === "ai" && currentUser.role === "admin" && (
         <div className="p-6 md:p-8 rounded-2xl bg-[#0f172a] border border-gray-800 space-y-6 shadow-xl">
           <div>
-            <h2 className="text-base font-semibold text-white">Parámetros del Motor Whisper & CUDA</h2>
+            <h2 className="text-base font-semibold text-white">Parámetros del motor</h2>
             <p className="text-xs text-gray-400 mt-0.5">
-              Personaliza la arquitectura del pipeline acústico para tus sesiones de transcripción.
+              Estos controles son de la cuenta administradora. El modelo activo sigue siendo el que arrancó el servidor.
             </p>
           </div>
 
@@ -215,13 +249,13 @@ export const ProfileView: React.FC = () => {
                   onChange={(e) => setPreferredModel(e.target.value as any)}
                   className="w-full bg-[#1b2642] border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
                 >
-                  <option value="whisper-large-v3">Whisper Large v3 (1550M params • 82% Precisión Médica)</option>
-                  <option value="whisper-turbo">Whisper Turbo (809M params • 12x tiempo real)</option>
-                  <option value="whisper-medium">Whisper Medium (769M params • Baja latencia)</option>
-                  <option value="whisper-base">Whisper Base (74M params • Prototipado rápido)</option>
+                  <option value="whisper-large-v3">Whisper Large v3</option>
+                  <option value="whisper-turbo">Whisper Turbo</option>
+                  <option value="whisper-medium">Whisper Medium</option>
+                  <option value="whisper-base">Whisper Base</option>
                 </select>
                 <p className="text-[11px] text-gray-400">
-                  Se ejecutará prioritariamente en la memoria VRAM del GPU RTX 4090 local.
+                  El servidor decide el modelo real al iniciar. Este selector no cambia el proceso en ejecución.
                 </p>
               </div>
 
@@ -247,7 +281,7 @@ export const ProfileView: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-xl bg-[#141d33] border border-gray-800 flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-semibold text-white">Diarización Acústica (PyAnnote)</div>
+                  <div className="text-xs font-semibold text-white">Separación de hablantes</div>
                   <div className="text-[11px] text-gray-400">
                     Separación espectral automática por locutores (Speaker 1, 2, etc.)
                   </div>
@@ -305,7 +339,7 @@ export const ProfileView: React.FC = () => {
             <div className="p-5 rounded-2xl bg-[#0f172a] border border-gray-800 space-y-2">
               <span className="text-xs font-mono text-gray-400 uppercase">Minutos Utilizados</span>
               <div className="text-3xl font-bold font-mono text-white">
-                {currentUser.minutesUsed} <span className="text-sm font-normal text-gray-400">/ {currentUser.monthlyQuota} min</span>
+                {minutesUsed.toFixed(2)} <span className="text-sm font-normal text-gray-400">/ {quota || "sin límite"} min</span>
               </div>
               <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
                 <div className="bg-cyan-400 h-full rounded-full" style={{ width: `${quotaPercent}%` }}></div>
@@ -314,20 +348,20 @@ export const ProfileView: React.FC = () => {
             </div>
 
             <div className="p-5 rounded-2xl bg-[#0f172a] border border-gray-800 space-y-2">
-              <span className="text-xs font-mono text-gray-400 uppercase">Ahorro vs Nube Comercial</span>
+              <span className="text-xs font-mono text-gray-400 uppercase">Costo estimado</span>
               <div className="text-3xl font-bold font-mono text-emerald-400">
-                ${savings.savingsUSD.toFixed(2)} USD
+                {formatInferenceCost(minutesUsed * 60, settings.ratePerMinuteUsd, estimatedCost)}
               </div>
               <p className="text-[11px] text-gray-400">
-                Calculado contra tarifa estándar de $0.006 USD/minuto por API de terceros.
+                Tarifa de referencia configurada en el servidor: ${settings.ratePerMinuteUsd.toFixed(3)} por minuto.
               </p>
             </div>
 
             <div className="p-5 rounded-2xl bg-[#0f172a] border border-gray-800 space-y-2">
-              <span className="text-xs font-mono text-gray-400 uppercase">Eficiencia Energética</span>
-              <div className="text-3xl font-bold font-mono text-purple-400">0.021 kWh</div>
+              <span className="text-xs font-mono text-gray-400 uppercase">Solicitudes</span>
+              <div className="text-3xl font-bold font-mono text-purple-400">{usage?.total_requests ?? 0}</div>
               <p className="text-[11px] text-gray-400">
-                Inferencia CUDA local altamente optimizada con arquitectura Eureka-01.
+                Transcripciones registradas en tu cuenta.
               </p>
             </div>
           </div>
@@ -395,3 +429,33 @@ export const ProfileView: React.FC = () => {
     </div>
   );
 };
+
+function resizeProfilePhoto(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      const size = 256;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(url);
+        reject(new Error("No se pudo preparar la imagen."));
+        return;
+      }
+      const scale = Math.max(size / image.width, size / image.height);
+      const width = image.width * scale;
+      const height = image.height * scale;
+      context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("La imagen no se pudo leer."));
+    };
+    image.src = url;
+  });
+}

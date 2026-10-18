@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from typing import Optional, List
-from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, DateTime, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.db.base import Base, TimestampMixin
 
@@ -17,7 +17,8 @@ class User(Base, TimestampMixin):
     role: Mapped[str] = mapped_column(String(20), default="customer", nullable=False)  # "customer", "admin", "auditor"
     role_title: Mapped[str] = mapped_column(String(100), default="Usuario", nullable=False)
     organization: Mapped[str] = mapped_column(String(150), default="Eureka Client", nullable=False)
-    avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    avatar_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    preferred_language: Mapped[str] = mapped_column(String(12), default="auto", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     max_minutes_quota: Mapped[int] = mapped_column(Integer, default=120, nullable=False)  # Minutes quota

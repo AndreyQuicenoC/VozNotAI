@@ -96,6 +96,13 @@ class Settings(BaseSettings):
             raise ValueError("Defina APP_SECRET_KEY propio antes de ejecutar en producción.")
         return self
 
+    @model_validator(mode="after")
+    def merge_frontend_origin_into_cors(self) -> "Settings":
+        origin = (self.FRONTEND_ORIGIN or "").strip().rstrip("/")
+        if origin and origin not in self.ALLOWED_ORIGINS:
+            self.ALLOWED_ORIGINS = [*self.ALLOWED_ORIGINS, origin]
+        return self
+
     @property
     def is_production(self) -> bool:
         return self.APP_ENV.lower() == "production"

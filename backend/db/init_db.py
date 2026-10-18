@@ -1,5 +1,6 @@
 import logging
 from decimal import Decimal
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from backend.core.config import get_settings
 from backend.core.security import get_password_hash
@@ -11,9 +12,24 @@ logger = logging.getLogger("voznotai.init_db")
 settings = get_settings()
 
 
+def ensure_runtime_columns() -> None:
+    """Adds columns introduced after the first local database was created."""
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+    user_columns = {column["name"] for column in inspector.get_columns("users")}
+    conversation_columns = {column["name"] for column in inspector.get_columns("conversations")}
+    with engine.begin() as connection:
+        if "preferred_language" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN preferred_language VARCHAR(12) DEFAULT 'auto'"))
+        if "tags" not in conversation_columns:
+            connection.execute(text("ALTER TABLE conversations ADD COLUMN tags VARCHAR(400) DEFAULT ''"))
+
+
 def init_db(db: Session) -> None:
     """Initializes tables and seeds necessary default system settings and admin."""
     Base.metadata.create_all(bind=engine)
+    ensure_runtime_columns()
 
     # 1. Initialize or verify SystemSettings
     sys_settings = db.query(SystemSettings).first()
@@ -34,6 +50,18 @@ def init_db(db: Session) -> None:
             updated_by="system_bootstrap",
         )
         db.add(sys_settings)
+        db.commit()
+    else:
+        sys_settings.execution_mode = settings.TRANSCRIPTION_MODE.lower()
+        sys_settings.local_model_name = settings.LOCAL_WHISPER_MODEL
+        sys_settings.remote_endpoint = settings.TRANSCRIPTION_API_BASE_URL
+        sys_settings.remote_model_name = settings.TRANSCRIPTION_API_MODEL
+        sys_settings.remote_provider_enabled = bool(settings.TRANSCRIPTION_API_KEY.strip())
+        if settings.TRANSCRIPTION_API_KEY.strip():
+            sys_settings.remote_api_key_masked = "********"
+        sys_settings.usage_rate_per_audio_minute = Decimal(str(settings.USAGE_RATE_PER_MINUTE))
+        sys_settings.maximum_audio_duration_seconds = settings.MAX_AUDIO_DURATION_SECONDS
+        sys_settings.maximum_upload_size_bytes = settings.MAX_UPLOAD_SIZE_BYTES
         db.commit()
 
     # 2. Bootstrap Administrator only when an explicit password is provided.

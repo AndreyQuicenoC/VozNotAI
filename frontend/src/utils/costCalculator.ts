@@ -26,6 +26,20 @@ export function calculateSavingsUSD(audioMinutes: number, commercialApiRatePerMi
 /**
  * Formats duration in seconds to standard mm:ss or hh:mm:ss
  */
+export function formatInferenceCost(durationSeconds: number, ratePerMinute: number = DEFAULT_COMMERCIAL_API_RATE_PER_MIN, storedCost?: number | null): string {
+  const cost = storedCost && storedCost > 0 ? storedCost : durationSeconds > 0 && ratePerMinute > 0 ? (durationSeconds / 60) * ratePerMinute : 0;
+  if (cost <= 0) return "$0.00";
+  if (cost >= 0.01) return `$${cost.toFixed(2)}`;
+  return `$${cost.toFixed(6)}`;
+}
+
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "Sin tamaño";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 export function formatDuration(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return "00:00";
   const totalSeconds = Math.floor(seconds);

@@ -3,6 +3,10 @@
  */
 
 export type AppRoute =
+  | "home"
+  | "features"
+  | "how-it-works"
+  | "privacy"
   | "dashboard"
   | "workspace"
   | "notes"
@@ -17,6 +21,10 @@ export type AppRoute =
 
 const ROUTE_ALIASES: Record<string, AppRoute> = {
   // English standard
+  home: "home",
+  features: "features",
+  "how-it-works": "how-it-works",
+  privacy: "privacy",
   dashboard: "dashboard",
   workspace: "workspace",
   notes: "notes",
@@ -30,7 +38,10 @@ const ROUTE_ALIASES: Record<string, AppRoute> = {
   recovery: "recovery",
 
   // Spanish aliases
-  inicio: "dashboard",
+  inicio: "home",
+  funcionalidades: "features",
+  "como-funciona": "how-it-works",
+  privacidad: "privacy",
   "espacio-de-trabajo": "workspace",
   "notas-inteligentes": "notes",
   "panel-administrador": "admin",
@@ -49,8 +60,15 @@ const ROUTE_ALIASES: Record<string, AppRoute> = {
 /**
  * Normalizes any route string or URL hash to a canonical AppRoute
  */
+export function isKnownRoute(rawPath: string): boolean {
+  const clean = rawPath.replace(/^#\/?/, "").trim().toLowerCase();
+  if (!clean) return true;
+  return Boolean(ROUTE_ALIASES[clean]);
+}
+
 export function normalizeRoute(rawPath: string): AppRoute {
   const clean = rawPath.replace(/^#\/?/, "").trim().toLowerCase();
+  if (!clean) return "home";
   if (ROUTE_ALIASES[clean]) {
     return ROUTE_ALIASES[clean];
   }
@@ -69,9 +87,18 @@ export function isAdminOnlyRoute(route: AppRoute): boolean {
  */
 export function isPublicRoute(route: AppRoute): boolean {
   return (
+    route === "home" ||
+    route === "features" ||
+    route === "how-it-works" ||
+    route === "privacy" ||
     route === "about" ||
     route === "login" ||
     route === "register" ||
     route === "recovery"
   );
+}
+
+/** Manual stays inside the app shell after login, and is readable before login. */
+export function isAccessibleWithoutAuth(route: AppRoute): boolean {
+  return isPublicRoute(route) || route === "manual";
 }

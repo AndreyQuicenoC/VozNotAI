@@ -11,7 +11,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onOpenSearch,
-  isCollapsed = false,
 }) => {
   const { currentUser, logout, engineStatus } = useVozNotStore();
   const isAdmin = currentUser?.role === "admin";
@@ -56,9 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`fixed top-0 right-0 h-16 bg-[#0d1323]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.4)] z-40 flex items-center justify-between px-6 border-b border-[#24293b]/40 transition-all duration-300 ${
-        isCollapsed ? "left-20" : "left-64"
-      }`}
+      className="shrink-0 h-16 w-full bg-[#0d1323]/95 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.4)] z-40 flex items-center justify-between px-6 border-b border-[#24293b]/40"
     >
       {/* Search Input Box (Clicks open full Command Palette modal) */}
       <div className="flex items-center gap-4 flex-1 max-w-xl">
