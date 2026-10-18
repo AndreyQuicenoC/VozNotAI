@@ -1,8 +1,8 @@
 import React, { useState, useRef } from "react";
 import { useVozNotStore } from "../../services/store.ts";
 import { validateAudioFile } from "../../utils/securityValidator.ts";
+import { encodeBlobToWav } from "../../utils/wavEncoder.ts";
 import { formatDuration } from "../../utils/costCalculator.ts";
-import { loadBalancer } from "../../services/loadBalancer.ts";
 import { api } from "../../services/api.ts";
 import type { AudioSession, TranscriptSegment } from "../../types/index.ts";
 
@@ -19,20 +19,16 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
   onSuccess,
   onCreated,
 }) => {
-  const { addSession, currentUser, setCurrentSessionId, refresh } = useVozNotStore();
-  const isAdmin = currentUser?.role === "admin";
-  const lbState = loadBalancer.getState();
+  const { addSession, currentUser, setCurrentSessionId, refresh, engineStatus } = useVozNotStore();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [adminModeOverride, setAdminModeOverride] = useState<"Local" | "Cloud">(
-    lbState.systemMode === "cloud_api" ? "Cloud" : "Local"
-  );
   const [space, setSpace] = useState<string>("Eureka Executive");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [isConverting, setIsConverting] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +52,14 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
     try {
       setError("");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const preferredMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "";
+      const mediaRecorder = preferredMime
+        ? new MediaRecorder(stream, { mimeType: preferredMime })
+        : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -67,21 +70,49 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
-        const recordedFile = new File(
-          [audioBlob],
-          `Grabacion_Microfono_${new Date().toISOString().slice(11, 19).replace(/:/g, "-")}.wav`,
-          { type: "audio/wav" }
-        );
-        setSelectedFile(recordedFile);
+        const mimeType = mediaRecorder.mimeType || preferredMime || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         stream.getTracks().forEach((track) => track.stop());
+        setIsConverting(true);
+        setStatusMessage("Convirtiendo la grabación a WAV...");
+        void encodeBlobToWav(audioBlob)
+          .then((wavBlob) => {
+            const recordedFile = new File(
+              [wavBlob],
+              `Grabacion_Microfono_${new Date().toISOString().slice(11, 19).replace(/:/g, "-")}.wav`,
+              { type: "audio/wav" }
+            );
+            const validation = validateAudioFile(recordedFile);
+            if (!validation.valid) {
+              setSelectedFile(null);
+              setError(validation.error || "La grabación convertida no es válida.");
+              return;
+            }
+            setSelectedFile(recordedFile);
+            setError("");
+          })
+          .catch(() => {
+            setSelectedFile(null);
+            setError("No se pudo convertir la grabación del micrófono a WAV.");
+          })
+          .finally(() => {
+            setIsConverting(false);
+            setStatusMessage("");
+          });
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingSeconds(0);
+      let elapsed = 0;
       recordTimerRef.current = window.setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
+        elapsed += 1;
+        setRecordingSeconds(elapsed);
+        if (elapsed >= 120 && mediaRecorder.state === "recording") {
+          if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+          setIsRecording(false);
+          mediaRecorder.stop();
+        }
       }, 1000);
     } catch {
       setError("No se pudo acceder al micrófono. Verifique los permisos del navegador.");
@@ -89,7 +120,7 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (recordTimerRef.current) clearInterval(recordTimerRef.current);
@@ -271,13 +302,18 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${isRecording ? "bg-red-500 animate-ping" : "bg-gray-500"}`}></span>
               <span className="text-gray-300">
-                {isRecording ? `Grabando micrófono: ${recordingSeconds}s` : "O graba nota de voz en directo"}
+                {isConverting
+                  ? "Convirtiendo la grabación a WAV..."
+                  : isRecording
+                    ? `Grabando micrófono: ${recordingSeconds}s`
+                    : "O graba nota de voz en directo. Se envía como WAV."}
               </span>
             </div>
             {!isRecording ? (
               <button
                 type="button"
                 onClick={startRecording}
+                disabled={isConverting}
                 className="px-3 py-1.5 rounded-lg bg-[#18233e] hover:bg-[#202e52] text-cyan-400 font-medium text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-sm">mic</span>
@@ -311,26 +347,13 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
               </select>
             </div>
 
-            {/* ONLY ADMIN CAN OVERRIDE MODE. For normal users, it shows system authoritative status */}
             <div>
-              <label className="text-[11px] font-mono text-gray-400 block mb-1">
-                {isAdmin ? "Sobrescribir Motor (Admin):" : "Motor Asignado:"}
-              </label>
-              {isAdmin ? (
-                <select
-                  value={adminModeOverride}
-                  onChange={(e) => setAdminModeOverride(e.target.value as any)}
-                  className="w-full bg-[#18233e] border border-gray-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-                >
-                  <option value="Local">Local CUDA (RTX 4090 / 3090)</option>
-                  <option value="Cloud">API Cloud Failover</option>
-                </select>
-              ) : (
-                <div className="w-full bg-[#0d1424] border border-gray-800 rounded-lg px-3 py-2 text-xs text-cyan-400 font-medium flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm">verified_user</span>
-                  <span>Clúster Soberano Automático</span>
-                </div>
-              )}
+              <label className="text-[11px] font-mono text-gray-400 block mb-1">Motor del servidor:</label>
+              <div className="w-full bg-[#0d1424] border border-gray-800 rounded-lg px-3 py-2 text-xs text-cyan-400 font-medium">
+                {engineStatus
+                  ? `${engineStatus.execution_mode === "api" ? "API remota" : "Whisper local"} · ${engineStatus.active_model || "sin modelo"}`
+                  : "El modo lo define el servidor al iniciar la transcripción."}
+              </div>
             </div>
           </div>
 
@@ -373,7 +396,7 @@ export const QuickUploadModal: React.FC<QuickUploadModalProps> = ({
           </button>
           <button
             type="button"
-            disabled={!selectedFile || isProcessing}
+            disabled={!selectedFile || isProcessing || isConverting || isRecording}
             onClick={handleStartTranscription}
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-semibold text-xs transition-all shadow-md shadow-cyan-500/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
           >

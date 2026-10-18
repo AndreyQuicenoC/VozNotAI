@@ -125,7 +125,7 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
     } else if (type === "json") {
       content = exportToJson(activeSession?.segments || [], {
         durationSeconds: activeSession?.durationSeconds,
-        speakerDiarization: "pyannote v3",
+        speakerDiarization: "no disponible",
         mode: activeSession?.mode,
       });
       ext = "json";
@@ -1090,27 +1090,9 @@ export const WorkspaceView: React.FC<WorkspaceViewProps> = () => {
               );
             })}
 
-            {/* AI Generated Synthetic Summary Card */}
-            <article className="p-3 rounded-xl bg-[#191f30] flex flex-col gap-2 border border-[#7287ff]/30">
-              <div className="flex items-center gap-1.5 text-[#48d9e8] text-xs font-semibold">
-                <span className="material-symbols-outlined text-[16px]">psychology</span>
-                <span>Resumen Ejecutivo Automático</span>
-              </div>
-              <p className="text-xs text-[#c5c5d7] leading-relaxed">
-                Reunión estratégica validando la viabilidad económica y técnica del modelo local ClustLayer. 0 incidencias de latencia reportadas.
-              </p>
-              <div className="flex items-center justify-between pt-1 border-t border-[#24293b]">
-                <span className="font-['Space_Grotesk'] text-[11px] text-[#48d9e8]">Confianza IA: 99.4%</span>
-                <button
-                  type="button"
-                  onClick={() => handleExport("pdf")}
-                  className="text-xs text-[#48d9e8] hover:underline flex items-center gap-0.5"
-                >
-                  <span>Expandir</span>
-                  <span className="material-symbols-outlined text-[13px]">open_in_full</span>
-                </button>
-              </div>
-            </article>
+            {notes.length === 0 && (
+              <p className="text-xs text-[#8f8fa0] px-1">Esta conversación todavía no tiene notas.</p>
+            )}
           </div>
         </section>
       </div>

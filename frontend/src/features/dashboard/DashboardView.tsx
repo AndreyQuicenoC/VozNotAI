@@ -298,18 +298,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </span>
           </p>
           <p className="text-xs text-[#c5c5d7] mt-1.5 max-w-xl">
-            Formatos soportados: WAV, MP3, M4A, FLAC, OGG, WebM. Tamaño máximo: hasta 500 MB por sesión. Separación de
-            interlocutores y diarización automática habilitada.
+            Formatos soportados: WAV, MP3, M4A, FLAC y OGG. La grabación del micrófono se convierte a WAV. Tamaño máximo: 25 MB y 2 minutos.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
             <span className="px-2.5 py-1 rounded bg-[#191f30] text-[#c5c5d7] font-['Space_Grotesk'] text-xs border border-[#24293b]">
-              Diarización pyannote: Activada
+              Límite: 25 MB
             </span>
             <span className="px-2.5 py-1 rounded bg-[#191f30] text-[#c5c5d7] font-['Space_Grotesk'] text-xs border border-[#24293b]">
-              Idioma: Detección Automática (Multi-idioma)
+              Duración: 120 segundos
             </span>
             <span className="px-2.5 py-1 rounded bg-[#191f30] text-[#c5c5d7] font-['Space_Grotesk'] text-xs border border-[#24293b]">
-              Supresión de Ruido Neural: ON
+              Motor: el que configuró el servidor
             </span>
           </div>
         </div>
