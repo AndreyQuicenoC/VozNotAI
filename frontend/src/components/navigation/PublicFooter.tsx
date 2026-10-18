@@ -12,7 +12,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
           {/* Brand Info */}
           <div className="space-y-4 md:col-span-1">
             <button
-              onClick={() => onNavigate("inicio")}
+              onClick={() => onNavigate("home")}
               className="flex items-center gap-2.5 text-left focus:outline-none"
             >
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#48d9e8] to-[#7287ff] p-0.5 flex items-center justify-center">
@@ -47,7 +47,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
             <ul className="space-y-2 text-xs text-[#c5c5d7]">
               <li>
                 <button
-                  onClick={() => onNavigate("funcionalidades")}
+                  onClick={() => onNavigate("features")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
                   Funcionalidades
@@ -55,10 +55,10 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate("como-funciona")}
+                  onClick={() => onNavigate("how-it-works")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
-                  Arquitectura Whisper CUDA
+                  Cómo funciona
                 </button>
               </li>
               <li>
@@ -71,7 +71,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate("acerca-de")}
+                  onClick={() => onNavigate("about")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
                   Acerca de Eureka & Autoría
@@ -88,15 +88,15 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
             <ul className="space-y-2 text-xs text-[#c5c5d7]">
               <li>
                 <button
-                  onClick={() => onNavigate("privacidad")}
+                  onClick={() => onNavigate("privacy")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
-                  Política de Privacidad Zero-Retention
+                  Privacidad y datos guardados
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate("privacidad")}
+                  onClick={() => onNavigate("privacy")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
                   Términos de Servicio & Confidencialidad
@@ -104,7 +104,7 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate("acerca-de")}
+                  onClick={() => onNavigate("about")}
                   className="hover:text-[#48d9e8] transition-colors"
                 >
                   Seguridad y Auditoría ISO/IEC 25010
@@ -126,31 +126,10 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
             <span className="text-xs font-semibold text-[#dde2f9] uppercase tracking-wider block">
               Motor de Procesamiento
             </span>
-            <p className="text-xs text-[#c5c5d7]">Selecciona el backend predeterminado de inferencia vocal:</p>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#151b2c] border border-[#24293b]">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#48d9e8] animate-pulse"></span>
-                  <span className="font-['Space_Grotesk'] text-xs text-[#dde2f9]">
-                    Cluster Local Whisper CUDA
-                  </span>
-                </div>
-                <span className="text-[10px] text-[#48d9e8] bg-[#24293b] px-1.5 py-0.5 rounded font-semibold">
-                  v3 Turbo
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-[#151b2c] border border-[#24293b]">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#8f8fa0]"></span>
-                  <span className="font-['Space_Grotesk'] text-xs text-[#c5c5d7]">
-                    Nube Privada ClustLayer
-                  </span>
-                </div>
-                <span className="text-[10px] text-[#c5c5d7] bg-[#24293b] px-1.5 py-0.5 rounded font-semibold">
-                  Latencia Cero
-                </span>
-              </div>
-            </div>
+            <p className="text-xs text-[#c5c5d7] leading-relaxed">
+              El servidor usa Whisper local o el proveedor remoto que un administrador haya configurado.
+              Esta instalación no publica métricas de un clúster de GPU.
+            </p>
           </div>
         </div>
 

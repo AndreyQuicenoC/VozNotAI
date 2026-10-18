@@ -14,6 +14,12 @@ import { AdminClusterView } from "./features/admin/AdminClusterView.tsx";
 import { NotesHubView } from "./features/notes/NotesHubView.tsx";
 import { ProfileView } from "./features/profile/ProfileView.tsx";
 import { AboutView } from "./features/about/AboutView.tsx";
+import {
+  FeaturesView,
+  HomeView,
+  HowItWorksView,
+  PrivacyView,
+} from "./features/public/PublicInfoViews.tsx";
 import { LoginView } from "./features/auth/LoginView.tsx";
 import { RegisterView } from "./features/auth/RegisterView.tsx";
 import { PasswordRecoveryView } from "./features/auth/PasswordRecoveryView.tsx";
@@ -22,13 +28,15 @@ import { AiConfigView } from "./features/ai-config/AiConfigView.tsx";
 import { QuickUploadModal } from "./components/shared/QuickUploadModal.tsx";
 import { CommandPaletteModal } from "./components/shared/CommandPaletteModal.tsx";
 import { useVozNotStore } from "./services/store.ts";
-import { normalizeRoute, isPublicRoute, type AppRoute } from "./utils/routes.ts";
+import { normalizeRoute, isAccessibleWithoutAuth, isPublicRoute, type AppRoute } from "./utils/routes.ts";
 
 export default function App() {
   const { currentSessionId, setCurrentSessionId, currentUser, authReady, error } = useVozNotStore();
 
   // Route state
-  const [currentPath, setCurrentPath] = useState<AppRoute>("dashboard");
+  const [currentPath, setCurrentPath] = useState<AppRoute>(() =>
+    window.location.hash ? normalizeRoute(window.location.hash) : "home"
+  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
@@ -42,9 +50,6 @@ export default function App() {
     };
 
     window.addEventListener("hashchange", handleHashChange);
-    if (window.location.hash) {
-      handleHashChange();
-    }
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
@@ -57,12 +62,18 @@ export default function App() {
 
   const isPublic = isPublicRoute(currentPath);
   const isAdmin = currentUser?.role === "admin";
+  const showPublicShell = isPublic || (!currentUser && currentPath === "manual");
 
   useEffect(() => {
-    if (authReady && !currentUser && !isPublic) {
+    if (!authReady) return;
+    if (!window.location.hash) {
+      navigateTo(currentUser ? "dashboard" : "home");
+      return;
+    }
+    if (!currentUser && !isAccessibleWithoutAuth(currentPath)) {
       navigateTo("login");
     }
-  }, [authReady, currentUser, isPublic]);
+  }, [authReady, currentUser, currentPath]);
 
   return (
     <div className="min-h-screen bg-[#080e1e] text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
@@ -99,15 +110,20 @@ export default function App() {
         </div>
       )}
 
-      {!authReady && !isPublic ? (
+      {!authReady && !showPublicShell ? (
         <div className="min-h-screen flex items-center justify-center text-sm text-slate-300">
           Comprobando sesión…
         </div>
-      ) : isPublic ? (
+      ) : showPublicShell ? (
         <div className="flex flex-col min-h-screen">
           <PublicHeader currentPath={currentPath} onNavigate={navigateTo} />
           <main className="flex-1 pt-24 pb-12 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+            {currentPath === "home" && <HomeView onNavigate={navigateTo} />}
+            {currentPath === "features" && <FeaturesView onNavigate={navigateTo} />}
+            {currentPath === "how-it-works" && <HowItWorksView onNavigate={navigateTo} />}
+            {currentPath === "privacy" && <PrivacyView />}
             {currentPath === "about" && <AboutView onNavigate={navigateTo} />}
+            {currentPath === "manual" && <ManualView />}
             {currentPath === "login" && <LoginView onNavigate={navigateTo} />}
             {currentPath === "register" && <RegisterView onNavigate={navigateTo} />}
             {currentPath === "recovery" && <PasswordRecoveryView onNavigate={navigateTo} />}

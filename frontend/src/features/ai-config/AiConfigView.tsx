@@ -3,7 +3,7 @@ import { useVozNotStore } from "../../services/store.ts";
 import { loadBalancer, type SystemInferenceMode } from "../../services/loadBalancer.ts";
 
 export const AiConfigView: React.FC = () => {
-  const { currentUser, settings, updateSettings } = useVozNotStore();
+  const { currentUser, settings, updateSettings, engineStatus } = useVozNotStore();
   const isAdmin = currentUser?.role === "admin";
 
   const [lbState, setLbState] = useState(loadBalancer.getState());
@@ -45,8 +45,8 @@ export const AiConfigView: React.FC = () => {
 
   const handleSaveUserConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveToast("Preferencias personales de transcripción guardadas.");
-    setTimeout(() => setSaveToast(null), 3000);
+    setSaveToast("El idioma y las alertas personales no se guardan: el motor lo define el servidor.");
+    setTimeout(() => setSaveToast(null), 4000);
   };
 
   return (
@@ -72,7 +72,7 @@ export const AiConfigView: React.FC = () => {
           <p className="text-xs text-gray-400 mt-1 max-w-2xl leading-relaxed">
             {isAdmin
               ? "Control exclusivo para administradores: asigna el motor del sistema (Local CUDA balanceado o API Cloud), gestiona los nodos de GPU y ajusta las políticas de distribución."
-              : "Ajusta tus parámetros personales para la generación de transcripciones y alertas de procesamiento."}
+              : "El motor, el modelo y FFmpeg los define el servidor. Esta cuenta no cambia ese ajuste."}
           </p>
         </div>
 
@@ -272,8 +272,10 @@ export const AiConfigView: React.FC = () => {
           <div className="p-4 rounded-xl bg-[#131b2e] border border-gray-800 text-xs text-gray-300 flex items-center gap-3">
             <span className="material-symbols-outlined text-cyan-400 text-xl">verified_user</span>
             <div>
-              <strong className="text-white block">Motor Gestionado Centralmente:</strong>
-              El sistema ejecuta las transcripciones utilizando el clúster balanceado de alta fidelidad configurado por el administrador.
+              <strong className="text-white block">Motor del servidor:</strong>
+              {engineStatus
+                ? ` ${engineStatus.execution_mode === "api" ? "API remota" : "Whisper local"} · modelo ${engineStatus.active_model || "no informado"} · FFmpeg ${engineStatus.ffmpeg_installed ? "disponible" : "no detectado"}.`
+                : " Aún no hay estado del motor. Recarga la sesión si este aviso permanece."}
             </div>
           </div>
 
